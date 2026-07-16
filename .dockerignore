@@ -1,0 +1,11 @@
+.git/
+.vs/
+**/bin/
+**/obj/
+out/
+logs/
+storage/
+*.user
+Dockerfile
+.dockerignore
+*.sln.targets
