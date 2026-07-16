@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DespensaInteligente.Api/DespensaInteligente.Api.csproj" />
+    <Project Path="src/DespensaInteligente.Application/DespensaInteligente.Application.csproj" />
+    <Project Path="src/DespensaInteligente.Domain/DespensaInteligente.Domain.csproj" />
+    <Project Path="src/DespensaInteligente.Infrastructure/DespensaInteligente.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DespensaInteligente.Tests/DespensaInteligente.Tests.csproj" />
+  </Folder>
+</Solution>

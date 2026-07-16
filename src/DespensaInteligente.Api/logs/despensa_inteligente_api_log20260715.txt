@@ -1,0 +1,1203 @@
+2026-07-15 22:36:29.132 -03:00 [INF] Executed DbCommand (37ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2026-07-15 22:36:29.179 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2026-07-15 22:36:29.237 -03:00 [INF] Executed DbCommand (9ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE "__EFMigrationsHistory" (
+    "MigrationId" character varying(150) NOT NULL,
+    "ProductVersion" character varying(32) NOT NULL,
+    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+);
+2026-07-15 22:36:29.248 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND
+          c.relname='__EFMigrationsHistory'
+)
+2026-07-15 22:36:29.252 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT "MigrationId", "ProductVersion"
+FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId";
+2026-07-15 22:36:29.264 -03:00 [INF] Applying migration '20260715234719_InitialCreate'.
+2026-07-15 22:36:29.316 -03:00 [INF] Executed DbCommand (8ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE categorias (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    nome text NOT NULL,
+    cor text NOT NULL DEFAULT '#94a3b8',
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_categorias" PRIMARY KEY (id)
+);
+2026-07-15 22:36:29.323 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE lista_manual (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    nome text NOT NULL,
+    unidade text NOT NULL DEFAULT 'un',
+    quantidade_planejada numeric NOT NULL DEFAULT 1.0,
+    quantidade_real numeric,
+    pego boolean NOT NULL DEFAULT FALSE,
+    preco_unitario numeric,
+    preco numeric,
+    observacoes text,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_lista_manual" PRIMARY KEY (id)
+);
+2026-07-15 22:36:29.330 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE notas_fiscais (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    chave_acesso character varying(44) NOT NULL,
+    mercado text NOT NULL,
+    data_compra date NOT NULL,
+    valor_total numeric NOT NULL,
+    arquivo_nome text,
+    arquivo_path text,
+    raw_extracao jsonb,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_notas_fiscais" PRIMARY KEY (id)
+);
+2026-07-15 22:36:29.337 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE roles (
+    id uuid NOT NULL,
+    "Name" character varying(256),
+    "NormalizedName" character varying(256),
+    "ConcurrencyStamp" text,
+    CONSTRAINT "PK_roles" PRIMARY KEY (id)
+);
+2026-07-15 22:36:29.343 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE users (
+    id uuid NOT NULL,
+    username character varying(256),
+    normalized_username character varying(256),
+    email character varying(256),
+    normalized_email character varying(256),
+    email_confirmed boolean NOT NULL,
+    password_hash text,
+    security_stamp text,
+    concurrency_stamp text,
+    phone_number text,
+    phone_number_confirmed boolean NOT NULL,
+    two_factor_enabled boolean NOT NULL,
+    lockout_end timestamp with time zone,
+    lockout_enabled boolean NOT NULL,
+    access_failed_count integer NOT NULL,
+    CONSTRAINT "PK_users" PRIMARY KEY (id)
+);
+2026-07-15 22:36:29.353 -03:00 [INF] Executed DbCommand (7ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE itens (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    nome text NOT NULL,
+    apelido text,
+    marca text,
+    categoria_id uuid,
+    unidade text NOT NULL DEFAULT 'un',
+    duracao_dias integer,
+    estoque_minimo numeric NOT NULL DEFAULT 0.0,
+    observacoes text,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_itens" PRIMARY KEY (id),
+    CONSTRAINT "FK_itens_categorias_categoria_id" FOREIGN KEY (categoria_id) REFERENCES categorias (id) ON DELETE SET NULL
+);
+2026-07-15 22:36:29.361 -03:00 [INF] Executed DbCommand (6ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE compras (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    mercado text NOT NULL,
+    data_compra date NOT NULL,
+    valor_total numeric NOT NULL DEFAULT 0.0,
+    nota_fiscal_id uuid,
+    observacoes text,
+    created_at timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_compras" PRIMARY KEY (id),
+    CONSTRAINT "FK_compras_notas_fiscais_nota_fiscal_id" FOREIGN KEY (nota_fiscal_id) REFERENCES notas_fiscais (id) ON DELETE SET NULL
+);
+2026-07-15 22:36:29.368 -03:00 [INF] Executed DbCommand (6ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE role_claims (
+    "Id" integer GENERATED BY DEFAULT AS IDENTITY,
+    "RoleId" uuid NOT NULL,
+    "ClaimType" text,
+    "ClaimValue" text,
+    CONSTRAINT "PK_role_claims" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_role_claims_roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES roles (id) ON DELETE CASCADE
+);
+2026-07-15 22:36:29.375 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE user_claims (
+    "Id" integer GENERATED BY DEFAULT AS IDENTITY,
+    "UserId" uuid NOT NULL,
+    "ClaimType" text,
+    "ClaimValue" text,
+    CONSTRAINT "PK_user_claims" PRIMARY KEY ("Id"),
+    CONSTRAINT "FK_user_claims_users_UserId" FOREIGN KEY ("UserId") REFERENCES users (id) ON DELETE CASCADE
+);
+2026-07-15 22:36:29.383 -03:00 [INF] Executed DbCommand (6ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE user_logins (
+    "LoginProvider" text NOT NULL,
+    "ProviderKey" text NOT NULL,
+    "ProviderDisplayName" text,
+    "UserId" uuid NOT NULL,
+    CONSTRAINT "PK_user_logins" PRIMARY KEY ("LoginProvider", "ProviderKey"),
+    CONSTRAINT "FK_user_logins_users_UserId" FOREIGN KEY ("UserId") REFERENCES users (id) ON DELETE CASCADE
+);
+2026-07-15 22:36:29.388 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE user_roles (
+    "UserId" uuid NOT NULL,
+    "RoleId" uuid NOT NULL,
+    CONSTRAINT "PK_user_roles" PRIMARY KEY ("UserId", "RoleId"),
+    CONSTRAINT "FK_user_roles_roles_RoleId" FOREIGN KEY ("RoleId") REFERENCES roles (id) ON DELETE CASCADE,
+    CONSTRAINT "FK_user_roles_users_UserId" FOREIGN KEY ("UserId") REFERENCES users (id) ON DELETE CASCADE
+);
+2026-07-15 22:36:29.395 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE user_tokens (
+    "UserId" uuid NOT NULL,
+    "LoginProvider" text NOT NULL,
+    "Name" text NOT NULL,
+    "Value" text,
+    CONSTRAINT "PK_user_tokens" PRIMARY KEY ("UserId", "LoginProvider", "Name"),
+    CONSTRAINT "FK_user_tokens_users_UserId" FOREIGN KEY ("UserId") REFERENCES users (id) ON DELETE CASCADE
+);
+2026-07-15 22:36:29.402 -03:00 [INF] Executed DbCommand (6ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE compra_itens (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    compra_id uuid NOT NULL,
+    item_id uuid,
+    nome_original text NOT NULL,
+    quantidade numeric NOT NULL DEFAULT 1.0,
+    unidade text NOT NULL DEFAULT 'un',
+    preco_unitario numeric,
+    preco_total numeric,
+    CONSTRAINT "PK_compra_itens" PRIMARY KEY (id),
+    CONSTRAINT "FK_compra_itens_compras_compra_id" FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE CASCADE,
+    CONSTRAINT "FK_compra_itens_itens_item_id" FOREIGN KEY (item_id) REFERENCES itens (id) ON DELETE SET NULL
+);
+2026-07-15 22:36:29.412 -03:00 [INF] Executed DbCommand (8ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE TABLE lotes (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    item_id uuid NOT NULL,
+    compra_id uuid,
+    quantidade numeric NOT NULL,
+    validade date,
+    apelido text,
+    marca text,
+    local text NOT NULL DEFAULT 'despensa',
+    aberto_em date,
+    consumido boolean NOT NULL DEFAULT FALSE,
+    consumido_em date,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    CONSTRAINT "PK_lotes" PRIMARY KEY (id),
+    CONSTRAINT "FK_lotes_compras_compra_id" FOREIGN KEY (compra_id) REFERENCES compras (id) ON DELETE SET NULL,
+    CONSTRAINT "FK_lotes_itens_item_id" FOREIGN KEY (item_id) REFERENCES itens (id) ON DELETE CASCADE
+);
+2026-07-15 22:36:29.416 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_compra_itens_compra_id" ON compra_itens (compra_id);
+2026-07-15 22:36:29.421 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_compra_itens_item_id" ON compra_itens (item_id);
+2026-07-15 22:36:29.432 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_compras_nota_fiscal_id" ON compras (nota_fiscal_id);
+2026-07-15 22:36:29.437 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_itens_categoria_id" ON itens (categoria_id);
+2026-07-15 22:36:29.441 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_lotes_compra_id" ON lotes (compra_id);
+2026-07-15 22:36:29.445 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_lotes_item_id" ON lotes (item_id);
+2026-07-15 22:36:29.450 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_role_claims_RoleId" ON role_claims ("RoleId");
+2026-07-15 22:36:29.454 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE UNIQUE INDEX "RoleNameIndex" ON roles ("NormalizedName");
+2026-07-15 22:36:29.459 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_user_claims_UserId" ON user_claims ("UserId");
+2026-07-15 22:36:29.464 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_user_logins_UserId" ON user_logins ("UserId");
+2026-07-15 22:36:29.468 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "IX_user_roles_RoleId" ON user_roles ("RoleId");
+2026-07-15 22:36:29.472 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE INDEX "EmailIndex" ON users (normalized_email);
+2026-07-15 22:36:29.477 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+CREATE UNIQUE INDEX "UserNameIndex" ON users (normalized_username);
+2026-07-15 22:36:29.480 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+VALUES ('20260715234719_InitialCreate', '8.0.4');
+2026-07-15 22:36:39.768 -03:00 [INF] Iniciando o servidor da Despensa Inteligente...
+2026-07-15 22:36:39.830 -03:00 [INF] User profile is available. Using 'C:\Users\joaod\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2026-07-15 22:36:39.967 -03:00 [INF] Now listening on: http://localhost:5077
+2026-07-15 22:36:39.970 -03:00 [INF] Application started. Press Ctrl+C to shut down.
+2026-07-15 22:36:39.971 -03:00 [INF] Hosting environment: Development
+2026-07-15 22:36:39.972 -03:00 [INF] Content root path: C:\Users\joaod\Downloads\Despensa Inteligente\backend\src\DespensaInteligente.Api
+2026-07-15 22:37:24.347 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/auth/register - null null
+2026-07-15 22:37:24.375 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:24.384 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/auth/register - 204 null null 39.8422ms
+2026-07-15 22:37:24.390 -03:00 [INF] Request starting HTTP/1.1 POST http://localhost:5077/api/auth/register - application/json 55
+2026-07-15 22:37:24.395 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:24.439 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.AuthController.Register (DespensaInteligente.Api)'
+2026-07-15 22:37:24.457 -03:00 [INF] Route matched with {action = "Register", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Register(DespensaInteligente.Application.Common.DTOs.RegisterRequestDto) on controller DespensaInteligente.Api.Controllers.AuthController (DespensaInteligente.Api).
+2026-07-15 22:37:25.673 -03:00 [INF] Executed DbCommand (31ms) [Parameters=[@__normalizedEmail_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT u.id, u.access_failed_count, u.concurrency_stamp, u.email, u.email_confirmed, u.lockout_enabled, u.lockout_end, u.normalized_email, u.normalized_username, u.password_hash, u.phone_number, u.phone_number_confirmed, u.security_stamp, u.two_factor_enabled, u.username
+FROM users AS u
+WHERE u.normalized_email = @__normalizedEmail_0
+LIMIT 2
+2026-07-15 22:37:25.767 -03:00 [INF] Executed DbCommand (7ms) [Parameters=[@__normalizedUserName_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT u.id, u.access_failed_count, u.concurrency_stamp, u.email, u.email_confirmed, u.lockout_enabled, u.lockout_end, u.normalized_email, u.normalized_username, u.password_hash, u.phone_number, u.phone_number_confirmed, u.security_stamp, u.two_factor_enabled, u.username
+FROM users AS u
+WHERE u.normalized_username = @__normalizedUserName_0
+LIMIT 1
+2026-07-15 22:37:25.891 -03:00 [INF] Executed DbCommand (8ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (DbType = Int32), @p2='?', @p3='?', @p4='?' (DbType = Boolean), @p5='?' (DbType = Boolean), @p6='?' (DbType = DateTime), @p7='?', @p8='?', @p9='?', @p10='?', @p11='?' (DbType = Boolean), @p12='?', @p13='?' (DbType = Boolean), @p14='?'], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO users (id, access_failed_count, concurrency_stamp, email, email_confirmed, lockout_enabled, lockout_end, normalized_email, normalized_username, password_hash, phone_number, phone_number_confirmed, security_stamp, two_factor_enabled, username)
+VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14);
+2026-07-15 22:37:25.903 -03:00 [INF] Executing OkObjectResult, writing value of type '<>f__AnonymousType0`1[[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:37:25.922 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.AuthController.Register (DespensaInteligente.Api) in 1457.8571ms
+2026-07-15 22:37:25.926 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.AuthController.Register (DespensaInteligente.Api)'
+2026-07-15 22:37:25.934 -03:00 [INF] Request finished HTTP/1.1 POST http://localhost:5077/api/auth/register - 200 null application/json; charset=utf-8 1544.9173ms
+2026-07-15 22:37:33.580 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/auth/login - null null
+2026-07-15 22:37:33.583 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:33.584 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/auth/login - 204 null null 3.9644ms
+2026-07-15 22:37:33.587 -03:00 [INF] Request starting HTTP/1.1 POST http://localhost:5077/api/auth/login - application/json 55
+2026-07-15 22:37:33.589 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:33.591 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.AuthController.Login (DespensaInteligente.Api)'
+2026-07-15 22:37:33.597 -03:00 [INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Login(DespensaInteligente.Application.Common.DTOs.LoginRequestDto) on controller DespensaInteligente.Api.Controllers.AuthController (DespensaInteligente.Api).
+2026-07-15 22:37:33.643 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__normalizedEmail_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT u.id, u.access_failed_count, u.concurrency_stamp, u.email, u.email_confirmed, u.lockout_enabled, u.lockout_end, u.normalized_email, u.normalized_username, u.password_hash, u.phone_number, u.phone_number_confirmed, u.security_stamp, u.two_factor_enabled, u.username
+FROM users AS u
+WHERE u.normalized_email = @__normalizedEmail_0
+LIMIT 2
+2026-07-15 22:37:33.779 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__get_Item_0='?' (DbType = Guid), @__p_1='?', @__p_2='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT u."UserId", u."LoginProvider", u."Name", u."Value"
+FROM user_tokens AS u
+WHERE u."UserId" = @__get_Item_0 AND u."LoginProvider" = @__p_1 AND u."Name" = @__p_2
+LIMIT 1
+2026-07-15 22:37:33.796 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__normalizedUserName_0='?'], CommandType='"Text"', CommandTimeout='30']
+SELECT u.id, u.access_failed_count, u.concurrency_stamp, u.email, u.email_confirmed, u.lockout_enabled, u.lockout_end, u.normalized_email, u.normalized_username, u.password_hash, u.phone_number, u.phone_number_confirmed, u.security_stamp, u.two_factor_enabled, u.username
+FROM users AS u
+WHERE u.normalized_username = @__normalizedUserName_0
+LIMIT 1
+2026-07-15 22:37:33.819 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@p0='?', @p1='?', @p2='?' (DbType = Guid), @p3='?', @p18='?' (DbType = Guid), @p4='?' (DbType = Int32), @p5='?', @p19='?', @p6='?', @p7='?' (DbType = Boolean), @p8='?' (DbType = Boolean), @p9='?' (DbType = DateTime), @p10='?', @p11='?', @p12='?', @p13='?', @p14='?' (DbType = Boolean), @p15='?', @p16='?' (DbType = Boolean), @p17='?'], CommandType='"Text"', CommandTimeout='30']
+INSERT INTO user_tokens ("LoginProvider", "Name", "UserId", "Value")
+VALUES (@p0, @p1, @p2, @p3);
+UPDATE users SET access_failed_count = @p4, concurrency_stamp = @p5, email = @p6, email_confirmed = @p7, lockout_enabled = @p8, lockout_end = @p9, normalized_email = @p10, normalized_username = @p11, password_hash = @p12, phone_number = @p13, phone_number_confirmed = @p14, security_stamp = @p15, two_factor_enabled = @p16, username = @p17
+WHERE id = @p18 AND concurrency_stamp = @p19;
+2026-07-15 22:37:33.829 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Common.DTOs.LoginResponseDto'.
+2026-07-15 22:37:33.836 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.AuthController.Login (DespensaInteligente.Api) in 237.4568ms
+2026-07-15 22:37:33.837 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.AuthController.Login (DespensaInteligente.Api)'
+2026-07-15 22:37:33.838 -03:00 [INF] Request finished HTTP/1.1 POST http://localhost:5077/api/auth/login - 200 null application/json; charset=utf-8 251.2194ms
+2026-07-15 22:37:33.981 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:37:33.985 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:33.986 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 204 null null 4.2102ms
+2026-07-15 22:37:33.988 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:37:33.990 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:37:33.995 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:33.996 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 204 null null 5.5563ms
+2026-07-15 22:37:33.996 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:33.999 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.002 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.014 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.015 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.019 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.017 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.015 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.024 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.025 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 204 null null 10.2898ms
+2026-07-15 22:37:34.021 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 204 null null 6.7124ms
+2026-07-15 22:37:34.019 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 204 null null 4.7937ms
+2026-07-15 22:37:34.032 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.034 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.038 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:37:34.039 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:37:34.039 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:37:34.039 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.041 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.043 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:34.047 -03:00 [INF] Route matched with {action = "GetResumo", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetResumo(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:37:34.047 -03:00 [INF] Route matched with {action = "GetValidadesTimeline", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetValidadesTimeline(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:37:34.048 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:37:34.048 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:37:34.049 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:37:34.057 -03:00 [INF] Route matched with {action = "GetGastoMensalPorMercado", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetGastoMensalPorMercado(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:37:34.062 -03:00 [INF] Route matched with {action = "GetRecompra", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetRecompra(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:37:34.063 -03:00 [INF] Route matched with {action = "GetDurabilidade", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetDurabilidade(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:37:34.090 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__startDate_0='?' (DbType = Date)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND c.data_compra >= @__startDate_0
+2026-07-15 22:37:34.096 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[System.Collections.Generic.Dictionary`2[[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:37:34.107 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api) in 43.2395ms
+2026-07-15 22:37:34.108 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT COALESCE(sum(c.valor_total), 0.0)
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:37:34.109 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:37:34.113 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 80.48ms
+2026-07-15 22:37:34.122 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL
+2026-07-15 22:37:34.124 -03:00 [WRN] Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+2026-07-15 22:37:34.126 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.ValidadesTimelineDto'.
+2026-07-15 22:37:34.141 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.aberto_em, t.apelido, t.compra_id, t.consumido, t.consumido_em, t.created_at, t.item_id, t.local, t.marca, t.quantidade, t.updated_at, t.user_id, t.validade, t0.id, t0.compra_id, t0.item_id, t0.nome_original, t0.preco_total, t0.preco_unitario, t0.quantidade, t0.unidade, t0.user_id, t0.id0, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id0, t0.valor_total
+FROM itens AS i
+LEFT JOIN (
+    SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0
+) AS t ON i.id = t.item_id
+LEFT JOIN (
+    SELECT c.id, c.compra_id, c.item_id, c.nome_original, c.preco_total, c.preco_unitario, c.quantidade, c.unidade, c.user_id, t1.id AS id0, t1.created_at, t1.data_compra, t1.mercado, t1.nota_fiscal_id, t1.observacoes, t1.user_id AS user_id0, t1.valor_total
+    FROM compra_itens AS c
+    INNER JOIN (
+        SELECT c0.id, c0.created_at, c0.data_compra, c0.mercado, c0.nota_fiscal_id, c0.observacoes, c0.user_id, c0.valor_total
+        FROM compras AS c0
+        WHERE c0.user_id = @__ef_filter__UserId_0
+    ) AS t1 ON c.compra_id = t1.id
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON i.id = t0.item_id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.id, t.id, t0.id
+2026-07-15 22:37:34.147 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api) in 93.955ms
+2026-07-15 22:37:34.148 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Linq.OrderedEnumerable`2[[DespensaInteligente.Application.Services.RecompraItemDto, DespensaInteligente.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:37:34.150 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:37:34.153 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 154.4715ms
+2026-07-15 22:37:34.156 -03:00 [INF] Executed DbCommand (6ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND l.consumido AND l.consumido_em IS NOT NULL
+2026-07-15 22:37:34.160 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:37:34.160 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DurabilidadeResultDto'.
+2026-07-15 22:37:34.162 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api) in 97.2306ms
+2026-07-15 22:37:34.164 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:37:34.165 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 131.9271ms
+2026-07-15 22:37:34.166 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api) in 99.5767ms
+2026-07-15 22:37:34.168 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM lotes AS l
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido)
+2026-07-15 22:37:34.170 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:37:34.174 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 135.8067ms
+2026-07-15 22:37:34.200 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__sevenDaysLater_0='?' (DbType = Date), @__p_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT t.id, t0.nome, COALESCE(t.apelido, t0.apelido), t.validade, t.quantidade, t.local
+FROM (
+    SELECT l.id, l.apelido, l.item_id, l.local, l.quantidade, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL AND l.validade <= @__sevenDaysLater_0
+    ORDER BY l.validade
+    LIMIT @__p_1
+) AS t
+INNER JOIN (
+    SELECT i.id, i.apelido, i.nome
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON t.item_id = t0.id
+ORDER BY t.validade
+2026-07-15 22:37:34.203 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DashboardResumoDto'.
+2026-07-15 22:37:34.212 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api) in 160.3059ms
+2026-07-15 22:37:34.214 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:37:34.215 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 226.4878ms
+2026-07-15 22:37:45.721 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:37:45.725 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:45.725 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - 204 null null 4.8549ms
+2026-07-15 22:37:45.728 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:37:45.730 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:45.731 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:45.734 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:37:45.756 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:37:45.759 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:45.777 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 41.0804ms
+2026-07-15 22:37:45.778 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:45.781 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 53.6074ms
+2026-07-15 22:37:47.078 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/lista-manual - null null
+2026-07-15 22:37:47.081 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:47.082 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/lista-manual - 204 null null 4.3318ms
+2026-07-15 22:37:47.085 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lista-manual - null null
+2026-07-15 22:37:47.088 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:47.089 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:47.093 -03:00 [INF] Route matched with {action = "Get", controller = "ListaManual"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get() on controller DespensaInteligente.Api.Controllers.ListaManualController (DespensaInteligente.Api).
+2026-07-15 22:37:47.107 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.created_at, l.nome, l.observacoes, l.pego, l.preco, l.preco_unitario, l.quantidade_planejada, l.quantidade_real, l.unidade, l.updated_at, l.user_id
+FROM lista_manual AS l
+WHERE l.user_id = @__ef_filter__UserId_0
+ORDER BY l.created_at
+2026-07-15 22:37:47.114 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.ListaManual, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:47.116 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api) in 22.1024ms
+2026-07-15 22:37:47.117 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:47.120 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lista-manual - 200 null application/json; charset=utf-8 34.6133ms
+2026-07-15 22:37:47.651 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:37:47.654 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:47.657 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:47.658 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:37:47.667 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:37:47.670 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:47.671 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 11.0375ms
+2026-07-15 22:37:47.672 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:47.673 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 22.0701ms
+2026-07-15 22:37:49.087 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lista-manual - null null
+2026-07-15 22:37:49.090 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:49.091 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:49.092 -03:00 [INF] Route matched with {action = "Get", controller = "ListaManual"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get() on controller DespensaInteligente.Api.Controllers.ListaManualController (DespensaInteligente.Api).
+2026-07-15 22:37:49.098 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.created_at, l.nome, l.observacoes, l.pego, l.preco, l.preco_unitario, l.quantidade_planejada, l.quantidade_real, l.unidade, l.updated_at, l.user_id
+FROM lista_manual AS l
+WHERE l.user_id = @__ef_filter__UserId_0
+ORDER BY l.created_at
+2026-07-15 22:37:49.101 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.ListaManual, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:49.102 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api) in 9.1262ms
+2026-07-15 22:37:49.104 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:49.104 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lista-manual - 200 null application/json; charset=utf-8 16.8708ms
+2026-07-15 22:37:52.382 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:37:52.383 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/itens - null null
+2026-07-15 22:37:52.386 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:52.388 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:52.389 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 204 null null 7.0394ms
+2026-07-15 22:37:52.390 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/itens - 204 null null 6.4213ms
+2026-07-15 22:37:52.393 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/itens - null null
+2026-07-15 22:37:52.396 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:52.394 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:37:52.397 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:52.399 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:52.402 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:52.403 -03:00 [INF] Route matched with {action = "Get", controller = "Itens"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.Nullable`1[System.Guid]) on controller DespensaInteligente.Api.Controllers.ItensController (DespensaInteligente.Api).
+2026-07-15 22:37:52.406 -03:00 [INF] Route matched with {action = "Get", controller = "Lotes"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String, System.String, System.String, Boolean) on controller DespensaInteligente.Api.Controllers.LotesController (DespensaInteligente.Api).
+2026-07-15 22:37:52.423 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.cor, t.created_at, t.nome, t.user_id
+FROM itens AS i
+LEFT JOIN (
+    SELECT c.id, c.cor, c.created_at, c.nome, c.user_id
+    FROM categorias AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON i.categoria_id = t.id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.nome
+2026-07-15 22:37:52.425 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Item, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:52.427 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api) in 23.1371ms
+2026-07-15 22:37:52.429 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:52.430 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/itens - 200 null application/json; charset=utf-8 36.989ms
+2026-07-15 22:37:52.433 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t0.id, t0.apelido, t0.categoria_id, t0.created_at, t0.duracao_dias, t0.estoque_minimo, t0.marca, t0.nome, t0.observacoes, t0.unidade, t0.updated_at, t0.user_id, t.id, t.created_at, t.data_compra, t.mercado, t.nota_fiscal_id, t.observacoes, t.user_id, t.valor_total
+FROM lotes AS l
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON l.compra_id = t.id
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.item_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND ((t.id IS NOT NULL AND date_part('year', t.data_compra)::int = @__year_0 AND date_part('month', t.data_compra)::int = @__month_1) OR (t.id IS NULL AND date_part('year', l.created_at AT TIME ZONE 'UTC')::int = @__year_0 AND date_part('month', l.created_at AT TIME ZONE 'UTC')::int = @__month_1))
+ORDER BY l.validade, l.created_at DESC
+2026-07-15 22:37:52.436 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Lote, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:52.439 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api) in 31.0383ms
+2026-07-15 22:37:52.440 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:52.441 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 200 null application/json; charset=utf-8 46.8672ms
+2026-07-15 22:37:54.177 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:37:54.179 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:54.180 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - 204 null null 3.1482ms
+2026-07-15 22:37:54.183 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:37:54.184 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:37:54.185 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:54.186 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:37:54.193 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:37:54.195 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:37:54.197 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 9.5179ms
+2026-07-15 22:37:54.198 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:37:54.198 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 15.087ms
+2026-07-15 22:38:03.442 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:38:03.445 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:03.446 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - 204 null null 3.5217ms
+2026-07-15 22:38:03.449 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:38:03.451 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:03.452 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:03.453 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:38:03.458 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:38:03.460 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:03.461 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 7.2804ms
+2026-07-15 22:38:03.462 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:03.463 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 14.5406ms
+2026-07-15 22:38:05.182 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.182 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.182 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.182 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.183 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.191 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.186 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.194 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 204 null null 11.4898ms
+2026-07-15 22:38:05.189 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.184 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.197 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 204 null null 15.0501ms
+2026-07-15 22:38:05.199 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.188 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.196 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.197 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 204 null null 14.14ms
+2026-07-15 22:38:05.192 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 204 null null 8.5989ms
+2026-07-15 22:38:05.204 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.211 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 204 null null 28.6937ms
+2026-07-15 22:38:05.218 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.220 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.223 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.223 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:38:05.225 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:38:05.226 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:38:05.227 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.229 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.230 -03:00 [INF] Route matched with {action = "GetValidadesTimeline", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetValidadesTimeline(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:05.231 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:05.232 -03:00 [INF] Route matched with {action = "GetResumo", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetResumo(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:05.233 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:38:05.233 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:38:05.235 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:38:05.238 -03:00 [INF] Route matched with {action = "GetDurabilidade", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetDurabilidade(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:05.238 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL
+2026-07-15 22:38:05.243 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.ValidadesTimelineDto'.
+2026-07-15 22:38:05.240 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT COALESCE(sum(c.valor_total), 0.0)
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:38:05.240 -03:00 [INF] Route matched with {action = "GetGastoMensalPorMercado", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetGastoMensalPorMercado(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:05.239 -03:00 [INF] Route matched with {action = "GetRecompra", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetRecompra(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:05.244 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND l.consumido AND l.consumido_em IS NOT NULL
+2026-07-15 22:38:05.244 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api) in 10.0661ms
+2026-07-15 22:38:05.249 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:38:05.249 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__startDate_0='?' (DbType = Date)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND c.data_compra >= @__startDate_0
+2026-07-15 22:38:05.250 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DurabilidadeResultDto'.
+2026-07-15 22:38:05.251 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:38:05.255 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM lotes AS l
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido)
+2026-07-15 22:38:05.255 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[System.Collections.Generic.Dictionary`2[[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:38:05.256 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api) in 14.7911ms
+2026-07-15 22:38:05.258 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 58.7646ms
+2026-07-15 22:38:05.262 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api) in 15.2292ms
+2026-07-15 22:38:05.263 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:38:05.264 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__sevenDaysLater_0='?' (DbType = Date), @__p_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT t.id, t0.nome, COALESCE(t.apelido, t0.apelido), t.validade, t.quantidade, t.local
+FROM (
+    SELECT l.id, l.apelido, l.item_id, l.local, l.quantidade, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL AND l.validade <= @__sevenDaysLater_0
+    ORDER BY l.validade
+    LIMIT @__p_1
+) AS t
+INNER JOIN (
+    SELECT i.id, i.apelido, i.nome
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON t.item_id = t0.id
+ORDER BY t.validade
+2026-07-15 22:38:05.267 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:38:05.268 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 47.8727ms
+2026-07-15 22:38:05.268 -03:00 [INF] Executed DbCommand (6ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.aberto_em, t.apelido, t.compra_id, t.consumido, t.consumido_em, t.created_at, t.item_id, t.local, t.marca, t.quantidade, t.updated_at, t.user_id, t.validade, t0.id, t0.compra_id, t0.item_id, t0.nome_original, t0.preco_total, t0.preco_unitario, t0.quantidade, t0.unidade, t0.user_id, t0.id0, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id0, t0.valor_total
+FROM itens AS i
+LEFT JOIN (
+    SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0
+) AS t ON i.id = t.item_id
+LEFT JOIN (
+    SELECT c.id, c.compra_id, c.item_id, c.nome_original, c.preco_total, c.preco_unitario, c.quantidade, c.unidade, c.user_id, t1.id AS id0, t1.created_at, t1.data_compra, t1.mercado, t1.nota_fiscal_id, t1.observacoes, t1.user_id AS user_id0, t1.valor_total
+    FROM compra_itens AS c
+    INNER JOIN (
+        SELECT c0.id, c0.created_at, c0.data_compra, c0.mercado, c0.nota_fiscal_id, c0.observacoes, c0.user_id, c0.valor_total
+        FROM compras AS c0
+        WHERE c0.user_id = @__ef_filter__UserId_0
+    ) AS t1 ON c.compra_id = t1.id
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON i.id = t0.item_id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.id, t.id, t0.id
+2026-07-15 22:38:05.270 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DashboardResumoDto'.
+2026-07-15 22:38:05.270 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 45.3684ms
+2026-07-15 22:38:05.274 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Linq.OrderedEnumerable`2[[DespensaInteligente.Application.Services.RecompraItemDto, DespensaInteligente.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:38:05.275 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api) in 38.5273ms
+2026-07-15 22:38:05.279 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api) in 30.1564ms
+2026-07-15 22:38:05.280 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:38:05.280 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:38:05.281 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 84.9875ms
+2026-07-15 22:38:05.282 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 59.3466ms
+2026-07-15 22:38:15.388 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:38:15.390 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:15.390 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/compras?mes=2026-07&mercado= - 204 null null 2.6705ms
+2026-07-15 22:38:15.393 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:38:15.394 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:15.396 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:15.396 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:38:15.402 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:38:15.403 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:15.404 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 6.5978ms
+2026-07-15 22:38:15.405 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:15.406 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 13.5918ms
+2026-07-15 22:38:16.162 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.162 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.162 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.162 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.162 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.167 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.169 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.174 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 204 null null 12.3095ms
+2026-07-15 22:38:16.172 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.173 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.177 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 204 null null 14.6126ms
+2026-07-15 22:38:16.170 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.176 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 204 null null 14.1969ms
+2026-07-15 22:38:16.174 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 204 null null 12.1362ms
+2026-07-15 22:38:16.177 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.180 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.181 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 204 null null 18.3229ms
+2026-07-15 22:38:16.182 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.185 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.187 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.189 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.191 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.193 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.195 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.196 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:38:16.196 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:38:16.198 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.199 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:38:16.200 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:38:16.200 -03:00 [INF] Route matched with {action = "GetResumo", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetResumo(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:16.201 -03:00 [INF] Route matched with {action = "GetDurabilidade", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetDurabilidade(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:16.202 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:38:16.203 -03:00 [INF] Route matched with {action = "GetRecompra", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetRecompra(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:16.204 -03:00 [INF] Route matched with {action = "GetValidadesTimeline", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetValidadesTimeline(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:16.207 -03:00 [INF] Route matched with {action = "GetGastoMensalPorMercado", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetGastoMensalPorMercado(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:16.209 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND l.consumido AND l.consumido_em IS NOT NULL
+2026-07-15 22:38:16.209 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT COALESCE(sum(c.valor_total), 0.0)
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:38:16.213 -03:00 [INF] Executed DbCommand (4ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.aberto_em, t.apelido, t.compra_id, t.consumido, t.consumido_em, t.created_at, t.item_id, t.local, t.marca, t.quantidade, t.updated_at, t.user_id, t.validade, t0.id, t0.compra_id, t0.item_id, t0.nome_original, t0.preco_total, t0.preco_unitario, t0.quantidade, t0.unidade, t0.user_id, t0.id0, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id0, t0.valor_total
+FROM itens AS i
+LEFT JOIN (
+    SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0
+) AS t ON i.id = t.item_id
+LEFT JOIN (
+    SELECT c.id, c.compra_id, c.item_id, c.nome_original, c.preco_total, c.preco_unitario, c.quantidade, c.unidade, c.user_id, t1.id AS id0, t1.created_at, t1.data_compra, t1.mercado, t1.nota_fiscal_id, t1.observacoes, t1.user_id AS user_id0, t1.valor_total
+    FROM compra_itens AS c
+    INNER JOIN (
+        SELECT c0.id, c0.created_at, c0.data_compra, c0.mercado, c0.nota_fiscal_id, c0.observacoes, c0.user_id, c0.valor_total
+        FROM compras AS c0
+        WHERE c0.user_id = @__ef_filter__UserId_0
+    ) AS t1 ON c.compra_id = t1.id
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON i.id = t0.item_id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.id, t.id, t0.id
+2026-07-15 22:38:16.214 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DurabilidadeResultDto'.
+2026-07-15 22:38:16.218 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Linq.OrderedEnumerable`2[[DespensaInteligente.Application.Services.RecompraItemDto, DespensaInteligente.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:38:16.219 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:38:16.224 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api) in 18.0095ms
+2026-07-15 22:38:16.224 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api) in 15.6682ms
+2026-07-15 22:38:16.226 -03:00 [INF] Executed DbCommand (15ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL
+2026-07-15 22:38:16.229 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM lotes AS l
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido)
+2026-07-15 22:38:16.232 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:38:16.234 -03:00 [INF] Executed DbCommand (5ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__startDate_0='?' (DbType = Date)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND c.data_compra >= @__startDate_0
+2026-07-15 22:38:16.234 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:38:16.237 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.ValidadesTimelineDto'.
+2026-07-15 22:38:16.242 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 61.5396ms
+2026-07-15 22:38:16.248 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[System.Collections.Generic.Dictionary`2[[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:38:16.248 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 65.9208ms
+2026-07-15 22:38:16.250 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api) in 39.9214ms
+2026-07-15 22:38:16.259 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:38:16.255 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api) in 43.3258ms
+2026-07-15 22:38:16.251 -03:00 [INF] Executed DbCommand (10ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__sevenDaysLater_0='?' (DbType = Date), @__p_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT t.id, t0.nome, COALESCE(t.apelido, t0.apelido), t.validade, t.quantidade, t.local
+FROM (
+    SELECT l.id, l.apelido, l.item_id, l.local, l.quantidade, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL AND l.validade <= @__sevenDaysLater_0
+    ORDER BY l.validade
+    LIMIT @__p_1
+) AS t
+INNER JOIN (
+    SELECT i.id, i.apelido, i.nome
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON t.item_id = t0.id
+ORDER BY t.validade
+2026-07-15 22:38:16.260 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 74.9734ms
+2026-07-15 22:38:16.261 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:38:16.263 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DashboardResumoDto'.
+2026-07-15 22:38:16.267 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 75.4668ms
+2026-07-15 22:38:16.268 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api) in 63.5629ms
+2026-07-15 22:38:16.271 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:38:16.272 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 95.1088ms
+2026-07-15 22:38:16.790 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:38:16.793 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:16.793 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:16.794 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:38:16.802 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:38:16.804 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:16.805 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 8.2567ms
+2026-07-15 22:38:16.805 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:16.806 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 16.4896ms
+2026-07-15 22:38:17.048 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/lista-manual - null null
+2026-07-15 22:38:17.050 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:17.050 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/lista-manual - 204 null null 2.7556ms
+2026-07-15 22:38:17.053 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lista-manual - null null
+2026-07-15 22:38:17.055 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:17.056 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:17.056 -03:00 [INF] Route matched with {action = "Get", controller = "ListaManual"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get() on controller DespensaInteligente.Api.Controllers.ListaManualController (DespensaInteligente.Api).
+2026-07-15 22:38:17.061 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.created_at, l.nome, l.observacoes, l.pego, l.preco, l.preco_unitario, l.quantidade_planejada, l.quantidade_real, l.unidade, l.updated_at, l.user_id
+FROM lista_manual AS l
+WHERE l.user_id = @__ef_filter__UserId_0
+ORDER BY l.created_at
+2026-07-15 22:38:17.063 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.ListaManual, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:17.064 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api) in 6.5922ms
+2026-07-15 22:38:17.066 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:17.066 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lista-manual - 200 null application/json; charset=utf-8 13.5979ms
+2026-07-15 22:38:17.368 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:38:17.368 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/itens - null null
+2026-07-15 22:38:17.372 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:17.372 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/itens - 204 null null 4.1055ms
+2026-07-15 22:38:17.370 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:17.375 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 204 null null 6.4183ms
+2026-07-15 22:38:17.374 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/itens - null null
+2026-07-15 22:38:17.376 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:38:17.378 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:17.380 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:17.380 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:17.381 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:17.381 -03:00 [INF] Route matched with {action = "Get", controller = "Itens"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.Nullable`1[System.Guid]) on controller DespensaInteligente.Api.Controllers.ItensController (DespensaInteligente.Api).
+2026-07-15 22:38:17.382 -03:00 [INF] Route matched with {action = "Get", controller = "Lotes"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String, System.String, System.String, Boolean) on controller DespensaInteligente.Api.Controllers.LotesController (DespensaInteligente.Api).
+2026-07-15 22:38:17.388 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.cor, t.created_at, t.nome, t.user_id
+FROM itens AS i
+LEFT JOIN (
+    SELECT c.id, c.cor, c.created_at, c.nome, c.user_id
+    FROM categorias AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON i.categoria_id = t.id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.nome
+2026-07-15 22:38:17.390 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Item, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:17.391 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api) in 7.836ms
+2026-07-15 22:38:17.392 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:17.392 -03:00 [INF] Executed DbCommand (7ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t0.id, t0.apelido, t0.categoria_id, t0.created_at, t0.duracao_dias, t0.estoque_minimo, t0.marca, t0.nome, t0.observacoes, t0.unidade, t0.updated_at, t0.user_id, t.id, t.created_at, t.data_compra, t.mercado, t.nota_fiscal_id, t.observacoes, t.user_id, t.valor_total
+FROM lotes AS l
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON l.compra_id = t.id
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.item_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND ((t.id IS NOT NULL AND date_part('year', t.data_compra)::int = @__year_0 AND date_part('month', t.data_compra)::int = @__month_1) OR (t.id IS NULL AND date_part('year', l.created_at AT TIME ZONE 'UTC')::int = @__year_0 AND date_part('month', l.created_at AT TIME ZONE 'UTC')::int = @__month_1))
+ORDER BY l.validade, l.created_at DESC
+2026-07-15 22:38:17.393 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/itens - 200 null application/json; charset=utf-8 19.0981ms
+2026-07-15 22:38:17.395 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Lote, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:17.398 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api) in 13.5967ms
+2026-07-15 22:38:17.399 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:17.400 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 200 null application/json; charset=utf-8 24.1271ms
+2026-07-15 22:38:18.259 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - null null
+2026-07-15 22:38:18.261 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - null null
+2026-07-15 22:38:18.261 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - null null
+2026-07-15 22:38:18.261 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - null null
+2026-07-15 22:38:18.261 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - null null
+2026-07-15 22:38:18.263 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.265 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.267 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.269 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.271 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.272 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:38:18.272 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:38:18.273 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:38:18.273 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:38:18.274 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:38:18.275 -03:00 [INF] Route matched with {action = "GetResumo", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetResumo(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:18.275 -03:00 [INF] Route matched with {action = "GetValidadesTimeline", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetValidadesTimeline(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:18.276 -03:00 [INF] Route matched with {action = "GetGastoMensalPorMercado", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetGastoMensalPorMercado(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:18.277 -03:00 [INF] Route matched with {action = "GetDurabilidade", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetDurabilidade(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:18.278 -03:00 [INF] Route matched with {action = "GetRecompra", controller = "Dashboard"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] GetRecompra(System.String, System.String) on controller DespensaInteligente.Api.Controllers.DashboardController (DespensaInteligente.Api).
+2026-07-15 22:38:18.283 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT COALESCE(sum(c.valor_total), 0.0)
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:38:18.283 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL
+2026-07-15 22:38:18.284 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__startDate_0='?' (DbType = Date)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND c.data_compra >= @__startDate_0
+2026-07-15 22:38:18.286 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t.id, t.apelido, t.categoria_id, t.created_at, t.duracao_dias, t.estoque_minimo, t.marca, t.nome, t.observacoes, t.unidade, t.updated_at, t.user_id, t0.id, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id, t0.valor_total
+FROM lotes AS l
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t ON l.item_id = t.id
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.compra_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND l.consumido AND l.consumido_em IS NOT NULL
+2026-07-15 22:38:18.288 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.aberto_em, t.apelido, t.compra_id, t.consumido, t.consumido_em, t.created_at, t.item_id, t.local, t.marca, t.quantidade, t.updated_at, t.user_id, t.validade, t0.id, t0.compra_id, t0.item_id, t0.nome_original, t0.preco_total, t0.preco_unitario, t0.quantidade, t0.unidade, t0.user_id, t0.id0, t0.created_at, t0.data_compra, t0.mercado, t0.nota_fiscal_id, t0.observacoes, t0.user_id0, t0.valor_total
+FROM itens AS i
+LEFT JOIN (
+    SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0
+) AS t ON i.id = t.item_id
+LEFT JOIN (
+    SELECT c.id, c.compra_id, c.item_id, c.nome_original, c.preco_total, c.preco_unitario, c.quantidade, c.unidade, c.user_id, t1.id AS id0, t1.created_at, t1.data_compra, t1.mercado, t1.nota_fiscal_id, t1.observacoes, t1.user_id AS user_id0, t1.valor_total
+    FROM compra_itens AS c
+    INNER JOIN (
+        SELECT c0.id, c0.created_at, c0.data_compra, c0.mercado, c0.nota_fiscal_id, c0.observacoes, c0.user_id, c0.valor_total
+        FROM compras AS c0
+        WHERE c0.user_id = @__ef_filter__UserId_0
+    ) AS t1 ON c.compra_id = t1.id
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t0 ON i.id = t0.item_id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.id, t.id, t0.id
+2026-07-15 22:38:18.289 -03:00 [INF] Executed DbCommand (1ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM compras AS c
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+2026-07-15 22:38:18.289 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.ValidadesTimelineDto'.
+2026-07-15 22:38:18.291 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[System.Collections.Generic.Dictionary`2[[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.Object, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]], System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:38:18.293 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DurabilidadeResultDto'.
+2026-07-15 22:38:18.294 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Linq.OrderedEnumerable`2[[DespensaInteligente.Application.Services.RecompraItemDto, DespensaInteligente.Application, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]'.
+2026-07-15 22:38:18.298 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api) in 16.8933ms
+2026-07-15 22:38:18.298 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT count(*)::int
+FROM lotes AS l
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido)
+2026-07-15 22:38:18.299 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api) in 16.6288ms
+2026-07-15 22:38:18.300 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api) in 16.1885ms
+2026-07-15 22:38:18.302 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api) in 15.6368ms
+2026-07-15 22:38:18.303 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetValidadesTimeline (DespensaInteligente.Api)'
+2026-07-15 22:38:18.305 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetGastoMensalPorMercado (DespensaInteligente.Api)'
+2026-07-15 22:38:18.306 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetDurabilidade (DespensaInteligente.Api)'
+2026-07-15 22:38:18.307 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__sevenDaysLater_0='?' (DbType = Date), @__p_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT t.id, t0.nome, COALESCE(t.apelido, t0.apelido), t.validade, t.quantidade, t.local
+FROM (
+    SELECT l.id, l.apelido, l.item_id, l.local, l.quantidade, l.validade
+    FROM lotes AS l
+    WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND l.validade IS NOT NULL AND l.validade <= @__sevenDaysLater_0
+    ORDER BY l.validade
+    LIMIT @__p_1
+) AS t
+INNER JOIN (
+    SELECT i.id, i.apelido, i.nome
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON t.item_id = t0.id
+ORDER BY t.validade
+2026-07-15 22:38:18.307 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetRecompra (DespensaInteligente.Api)'
+2026-07-15 22:38:18.308 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/validades-timeline?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 47.3767ms
+2026-07-15 22:38:18.310 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/gasto-mensal-por-mercado?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 48.4979ms
+2026-07-15 22:38:18.311 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/durabilidade?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 49.3556ms
+2026-07-15 22:38:18.313 -03:00 [INF] Executing OkObjectResult, writing value of type 'DespensaInteligente.Application.Services.DashboardResumoDto'.
+2026-07-15 22:38:18.313 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/recompra?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 51.8565ms
+2026-07-15 22:38:18.323 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api) in 43.3949ms
+2026-07-15 22:38:18.326 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.DashboardController.GetResumo (DespensaInteligente.Api)'
+2026-07-15 22:38:18.328 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/dashboard/resumo?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 68.3425ms
+2026-07-15 22:38:18.598 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - null null
+2026-07-15 22:38:18.600 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.602 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:18.603 -03:00 [INF] Route matched with {action = "Get", controller = "Compras"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String) on controller DespensaInteligente.Api.Controllers.ComprasController (DespensaInteligente.Api).
+2026-07-15 22:38:18.609 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total, t.id, t.compra_id, t.item_id, t.nome_original, t.preco_total, t.preco_unitario, t.quantidade, t.unidade, t.user_id
+FROM compras AS c
+LEFT JOIN (
+    SELECT c0.id, c0.compra_id, c0.item_id, c0.nome_original, c0.preco_total, c0.preco_unitario, c0.quantidade, c0.unidade, c0.user_id
+    FROM compra_itens AS c0
+    WHERE c0.user_id = @__ef_filter__UserId_0
+) AS t ON c.id = t.compra_id
+WHERE c.user_id = @__ef_filter__UserId_0 AND date_part('year', c.data_compra)::int = @__year_0 AND date_part('month', c.data_compra)::int = @__month_1
+ORDER BY c.data_compra DESC, c.created_at DESC, c.id
+2026-07-15 22:38:18.611 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Compra, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:18.612 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api) in 8.0195ms
+2026-07-15 22:38:18.613 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ComprasController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:18.614 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/compras?mes=2026-07&mercado= - 200 null application/json; charset=utf-8 16.3099ms
+2026-07-15 22:38:18.895 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lista-manual - null null
+2026-07-15 22:38:18.897 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:18.898 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:18.899 -03:00 [INF] Route matched with {action = "Get", controller = "ListaManual"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get() on controller DespensaInteligente.Api.Controllers.ListaManualController (DespensaInteligente.Api).
+2026-07-15 22:38:18.904 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.created_at, l.nome, l.observacoes, l.pego, l.preco, l.preco_unitario, l.quantidade_planejada, l.quantidade_real, l.unidade, l.updated_at, l.user_id
+FROM lista_manual AS l
+WHERE l.user_id = @__ef_filter__UserId_0
+ORDER BY l.created_at
+2026-07-15 22:38:18.905 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.ListaManual, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:18.906 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api) in 5.5409ms
+2026-07-15 22:38:18.907 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ListaManualController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:18.908 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lista-manual - 200 null application/json; charset=utf-8 13.5248ms
+2026-07-15 22:38:19.142 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:38:19.143 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/itens - null null
+2026-07-15 22:38:19.145 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:19.146 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:19.148 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:19.148 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:19.149 -03:00 [INF] Route matched with {action = "Get", controller = "Lotes"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String, System.String, System.String, Boolean) on controller DespensaInteligente.Api.Controllers.LotesController (DespensaInteligente.Api).
+2026-07-15 22:38:19.150 -03:00 [INF] Route matched with {action = "Get", controller = "Itens"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.Nullable`1[System.Guid]) on controller DespensaInteligente.Api.Controllers.ItensController (DespensaInteligente.Api).
+2026-07-15 22:38:19.155 -03:00 [INF] Executed DbCommand (2ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid)], CommandType='"Text"', CommandTimeout='30']
+SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id, t.id, t.cor, t.created_at, t.nome, t.user_id
+FROM itens AS i
+LEFT JOIN (
+    SELECT c.id, c.cor, c.created_at, c.nome, c.user_id
+    FROM categorias AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON i.categoria_id = t.id
+WHERE i.user_id = @__ef_filter__UserId_0
+ORDER BY i.nome
+2026-07-15 22:38:19.155 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t0.id, t0.apelido, t0.categoria_id, t0.created_at, t0.duracao_dias, t0.estoque_minimo, t0.marca, t0.nome, t0.observacoes, t0.unidade, t0.updated_at, t0.user_id, t.id, t.created_at, t.data_compra, t.mercado, t.nota_fiscal_id, t.observacoes, t.user_id, t.valor_total
+FROM lotes AS l
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON l.compra_id = t.id
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.item_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND ((t.id IS NOT NULL AND date_part('year', t.data_compra)::int = @__year_0 AND date_part('month', t.data_compra)::int = @__month_1) OR (t.id IS NULL AND date_part('year', l.created_at AT TIME ZONE 'UTC')::int = @__year_0 AND date_part('month', l.created_at AT TIME ZONE 'UTC')::int = @__month_1))
+ORDER BY l.validade, l.created_at DESC
+2026-07-15 22:38:19.157 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Item, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:19.159 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Lote, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:19.160 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api) in 7.6967ms
+2026-07-15 22:38:19.161 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api) in 9.742ms
+2026-07-15 22:38:19.162 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.ItensController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:19.163 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:19.163 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/itens - 200 null application/json; charset=utf-8 20.6201ms
+2026-07-15 22:38:19.164 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 200 null application/json; charset=utf-8 22.0259ms
+2026-07-15 22:38:28.021 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=false - null null
+2026-07-15 22:38:28.024 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:28.024 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=false - 204 null null 2.8861ms
+2026-07-15 22:38:28.027 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=false - null null
+2026-07-15 22:38:28.029 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:28.030 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:28.031 -03:00 [INF] Route matched with {action = "Get", controller = "Lotes"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String, System.String, System.String, Boolean) on controller DespensaInteligente.Api.Controllers.LotesController (DespensaInteligente.Api).
+2026-07-15 22:38:28.043 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t0.id, t0.apelido, t0.categoria_id, t0.created_at, t0.duracao_dias, t0.estoque_minimo, t0.marca, t0.nome, t0.observacoes, t0.unidade, t0.updated_at, t0.user_id, t.id, t.created_at, t.data_compra, t.mercado, t.nota_fiscal_id, t.observacoes, t.user_id, t.valor_total
+FROM lotes AS l
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON l.compra_id = t.id
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.item_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND ((t.id IS NOT NULL AND date_part('year', t.data_compra)::int = @__year_0 AND date_part('month', t.data_compra)::int = @__month_1) OR (t.id IS NULL AND date_part('year', l.created_at AT TIME ZONE 'UTC')::int = @__year_0 AND date_part('month', l.created_at AT TIME ZONE 'UTC')::int = @__month_1))
+ORDER BY l.validade, l.created_at DESC
+2026-07-15 22:38:28.045 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Lote, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:28.046 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api) in 13.656ms
+2026-07-15 22:38:28.047 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:28.048 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=false - 200 null application/json; charset=utf-8 20.7398ms
+2026-07-15 22:38:28.487 -03:00 [INF] Request starting HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:38:28.489 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:28.490 -03:00 [INF] Request finished HTTP/1.1 OPTIONS http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 204 null null 2.6167ms
+2026-07-15 22:38:28.492 -03:00 [INF] Request starting HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - null null
+2026-07-15 22:38:28.494 -03:00 [INF] CORS policy execution successful.
+2026-07-15 22:38:28.495 -03:00 [INF] Executing endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:28.495 -03:00 [INF] Route matched with {action = "Get", controller = "Lotes"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.IActionResult] Get(System.String, System.String, System.String, System.String, Boolean) on controller DespensaInteligente.Api.Controllers.LotesController (DespensaInteligente.Api).
+2026-07-15 22:38:28.500 -03:00 [INF] Executed DbCommand (3ms) [Parameters=[@__ef_filter__UserId_0='?' (DbType = Guid), @__year_0='?' (DbType = Int32), @__month_1='?' (DbType = Int32)], CommandType='"Text"', CommandTimeout='30']
+SELECT l.id, l.aberto_em, l.apelido, l.compra_id, l.consumido, l.consumido_em, l.created_at, l.item_id, l.local, l.marca, l.quantidade, l.updated_at, l.user_id, l.validade, t0.id, t0.apelido, t0.categoria_id, t0.created_at, t0.duracao_dias, t0.estoque_minimo, t0.marca, t0.nome, t0.observacoes, t0.unidade, t0.updated_at, t0.user_id, t.id, t.created_at, t.data_compra, t.mercado, t.nota_fiscal_id, t.observacoes, t.user_id, t.valor_total
+FROM lotes AS l
+LEFT JOIN (
+    SELECT c.id, c.created_at, c.data_compra, c.mercado, c.nota_fiscal_id, c.observacoes, c.user_id, c.valor_total
+    FROM compras AS c
+    WHERE c.user_id = @__ef_filter__UserId_0
+) AS t ON l.compra_id = t.id
+INNER JOIN (
+    SELECT i.id, i.apelido, i.categoria_id, i.created_at, i.duracao_dias, i.estoque_minimo, i.marca, i.nome, i.observacoes, i.unidade, i.updated_at, i.user_id
+    FROM itens AS i
+    WHERE i.user_id = @__ef_filter__UserId_0
+) AS t0 ON l.item_id = t0.id
+WHERE l.user_id = @__ef_filter__UserId_0 AND NOT (l.consumido) AND ((t.id IS NOT NULL AND date_part('year', t.data_compra)::int = @__year_0 AND date_part('month', t.data_compra)::int = @__month_1) OR (t.id IS NULL AND date_part('year', l.created_at AT TIME ZONE 'UTC')::int = @__year_0 AND date_part('month', l.created_at AT TIME ZONE 'UTC')::int = @__month_1))
+ORDER BY l.validade, l.created_at DESC
+2026-07-15 22:38:28.502 -03:00 [INF] Executing OkObjectResult, writing value of type 'System.Collections.Generic.List`1[[DespensaInteligente.Domain.Entities.Lote, DespensaInteligente.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+2026-07-15 22:38:28.503 -03:00 [INF] Executed action DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api) in 6.4366ms
+2026-07-15 22:38:28.504 -03:00 [INF] Executed endpoint 'DespensaInteligente.Api.Controllers.LotesController.Get (DespensaInteligente.Api)'
+2026-07-15 22:38:28.505 -03:00 [INF] Request finished HTTP/1.1 GET http://localhost:5077/api/lotes?mes=2026-07&mercado=&search=&local=&somenteAtivos=true - 200 null application/json; charset=utf-8 12.8022ms
+2026-07-15 22:47:22.328 -03:00 [INF] Application is shutting down...
