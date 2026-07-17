@@ -29,6 +29,21 @@ namespace DespensaInteligente.Infrastructure
             // Configure LLM Options
             services.Configure<LlmOptions>(configuration.GetSection("Llm"));
 
+            // Support semicolon or comma-separated string for models in environment variables (e.g. Llm__Models="gemini-3.5-flash;gemini-3.1-flash-lite")
+            services.PostConfigure<LlmOptions>(options =>
+            {
+                var rawModelsValue = configuration["Llm:Models"];
+                if (!string.IsNullOrWhiteSpace(rawModelsValue) && (options.Models == null || options.Models.Count == 0))
+                {
+                    var splitModels = rawModelsValue.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                    options.Models = new List<string>();
+                    foreach (var modelName in splitModels)
+                    {
+                        options.Models.Add(modelName.Trim());
+                    }
+                }
+            });
+
             // Register specific implementations
             services.AddTransient<GeminiService>();
             services.AddHttpClient<OpenAIService>();

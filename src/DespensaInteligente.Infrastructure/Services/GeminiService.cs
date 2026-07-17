@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -19,6 +20,7 @@ namespace DespensaInteligente.Infrastructure.Services
     {
         private readonly LlmOptions _options;
         private readonly ILogger<GeminiService> _logger;
+        private readonly List<string> _modelsList = new();
 
         public GeminiService(
             IOptions<LlmOptions> options,
@@ -26,23 +28,50 @@ namespace DespensaInteligente.Infrastructure.Services
         {
             _options = options.Value ?? throw new ArgumentNullException(nameof(options));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+            InitializeModelsList();
+        }
+
+        private void InitializeModelsList()
+        {
+            var models = _options.Models;
+            if (models != null && models.Count > 0)
+            {
+                foreach (var m in models)
+                {
+                    var clean = NormalizeModelName(m);
+                    if (!string.IsNullOrEmpty(clean))
+                    {
+                        _modelsList.Add(clean);
+                    }
+                }
+            }
+            else if (!string.IsNullOrEmpty(_options.Model))
+            {
+                var clean = NormalizeModelName(_options.Model);
+                if (!string.IsNullOrEmpty(clean))
+                {
+                    _modelsList.Add(clean);
+                }
+            }
+
+            if (_modelsList.Count == 0)
+            {
+                _modelsList.Add("gemini-3.5-flash");
+            }
         }
 
         public async Task<InvoiceExtractionResult> ExtractInvoiceAsync(
             string prompt,
             Stream? file = null,
-            string? contentType = null)
+            string? contentType = null,
+            CancellationToken cancellationToken = default)
         {
-            _logger.LogInformation("Iniciando extração de dados da Nota Fiscal com o provedor Gemini. Modelo: {Model}", _options.Model);
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
+            _logger.LogInformation("Iniciando extração de dados da Nota Fiscal no Gemini.");
+            
             try
             {
-                string rawResponse = await GenerateAsync(prompt, file, contentType);
-                stopwatch.Stop();
-                
-                _logger.LogInformation("Chamada ao Gemini realizada com sucesso em {ElapsedMs}ms.", stopwatch.ElapsedMilliseconds);
-
+                string rawResponse = await GenerateAsync(prompt, file, contentType, cancellationToken);
                 var result = ParseLlmResponse(rawResponse);
                 return result;
             }
@@ -53,146 +82,247 @@ namespace DespensaInteligente.Infrastructure.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Falha na extração de dados da Nota Fiscal no provedor Gemini.");
-                throw new InvalidLlmResponseException("Falha ao obter uma resposta válida do Gemini.", ex);
+                throw new LlmCommunicationException("Falha ao obter uma resposta válida do Gemini após processamento.", ex);
             }
         }
 
         public async Task<string> GenerateAsync(
             string prompt,
             Stream? file = null,
-            string? contentType = null)
+            string? contentType = null,
+            CancellationToken cancellationToken = default)
+        {
+            Exception? lastException = null;
+            var stopwatchTotal = System.Diagnostics.Stopwatch.StartNew();
+
+            for (int modelIndex = 0; modelIndex < _modelsList.Count; modelIndex++)
+            {
+                string currentModel = _modelsList[modelIndex];
+                int maxAttempts = 3;
+
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    _logger.LogInformation("Tentativa {Attempt} utilizando {Model}", attempt, currentModel);
+                    var stopwatchAttempt = System.Diagnostics.Stopwatch.StartNew();
+
+                    try
+                    {
+                        string result = await GenerateWithModelAsync(currentModel, prompt, file, contentType, cancellationToken);
+                        stopwatchAttempt.Stop();
+                        stopwatchTotal.Stop();
+
+                        _logger.LogInformation("Resposta obtida com sucesso usando '{Model}' na tentativa {Attempt} em {ElapsedSeconds:F1} segundos. Tempo total da operação: {TotalSeconds:F1} segundos.",
+                            currentModel,
+                            attempt,
+                            stopwatchAttempt.Elapsed.TotalSeconds,
+                            stopwatchTotal.Elapsed.TotalSeconds);
+
+                        return result;
+                    }
+                    catch (Exception rawEx)
+                    {
+                        stopwatchAttempt.Stop();
+                        var translatedEx = TranslateException(rawEx, currentModel);
+                        lastException = translatedEx;
+
+                        _logger.LogWarning("Tentativa {Attempt} utilizando {Model} falhou. Motivo: {Reason}",
+                            attempt, currentModel, translatedEx.Message);
+
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        // Se a API Key for inválida, não adianta tentar outros modelos ou retentativas
+                        if (translatedEx is InvalidApiKeyException)
+                        {
+                            throw translatedEx;
+                        }
+
+                        if (attempt < maxAttempts && IsRetryableException(translatedEx))
+                        {
+                            int delaySeconds = (int)Math.Pow(2, attempt - 1); // Exponential backoff: 1s, 2s
+                            _logger.LogInformation("Erro temporário detectado. Aguardando {Delay} segundos antes de tentar novamente...", delaySeconds);
+                            
+                            try
+                            {
+                                await Task.Delay(delaySeconds * 1000, cancellationToken);
+                            }
+                            catch (OperationCanceledException)
+                            {
+                                throw lastException;
+                            }
+                        }
+                        else
+                        {
+                            // Esgotado ou erro não-retentável para este modelo
+                            if (modelIndex < _modelsList.Count - 1)
+                            {
+                                _logger.LogWarning("Falha definitiva no modelo '{Model}'. Tentando próximo modelo de fallback.", currentModel);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            throw lastException ?? new LlmException("Não foi possível gerar conteúdo com nenhum dos modelos configurados.");
+        }
+
+        private async Task<string> GenerateWithModelAsync(
+            string model,
+            string prompt,
+            Stream? file = null,
+            string? contentType = null,
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(_options.ApiKey))
             {
-                _logger.LogError("API Key do Gemini está vazia.");
                 throw new InvalidApiKeyException("A API Key para o Gemini não foi configurada.");
             }
 
-            try
+            var client = new Client(apiKey: _options.ApiKey);
+            var contents = new List<Content>();
+            var parts = new List<Part>();
+
+            if (file != null)
             {
-                var client = new Client(apiKey: _options.ApiKey);
-
-                var contents = new List<Content>();
-                var parts = new List<Part>();
-
-                if (file != null)
-                {
-                    using var ms = new MemoryStream();
-                    await file.CopyToAsync(ms);
-                    
-                    parts.Add(new Part
-                    {
-                        InlineData = new Blob
-                        {
-                            Data = ms.ToArray(),
-                            MimeType = contentType ?? "image/jpeg"
-                        }
-                    });
-                }
-
+                using var ms = new MemoryStream();
+                await file.CopyToAsync(ms, cancellationToken);
+                
                 parts.Add(new Part
                 {
-                    Text = prompt
-                });
-
-                contents.Add(new Content
-                {
-                    Role = "user",
-                    Parts = parts
-                });
-
-                var config = new GenerateContentConfig
-                {
-                    SystemInstruction = new Content
+                    InlineData = new Blob
                     {
-                        Parts = new List<Part>
-                        {
-                            new Part { Text = InvoicePromptTemplate.SystemPrompt }
-                        }
-                    },
-                    Temperature = 0.1,
-                    ResponseMimeType = "application/json"
-                };
+                        Data = ms.ToArray(),
+                        MimeType = contentType ?? "image/jpeg"
+                    }
+                });
+            }
 
-                var response = await client.Models.GenerateContentAsync(
-                    model: _options.Model,
-                    contents: contents,
-                    config: config
-                );
+            parts.Add(new Part
+            {
+                Text = prompt
+            });
 
-                if (response?.Candidates == null || response.Candidates.Count == 0 ||
-                    response.Candidates[0].Content?.Parts == null || response.Candidates[0].Content.Parts.Count == 0)
+            contents.Add(new Content
+            {
+                Role = "user",
+                Parts = parts
+            });
+
+            var config = new GenerateContentConfig
+            {
+                SystemInstruction = new Content
                 {
-                    throw new InvalidLlmResponseException("A resposta obtida do Gemini não contém candidatos ou partes.");
-                }
+                    Parts = new List<Part>
+                    {
+                        new Part { Text = InvoicePromptTemplate.SystemPrompt }
+                    }
+                },
+                Temperature = 0.1,
+                ResponseMimeType = "application/json"
+            };
 
-                var textResult = response.Candidates[0].Content.Parts[0].Text;
-                if (string.IsNullOrWhiteSpace(textResult))
-                {
-                    throw new InvalidLlmResponseException("O Gemini retornou um texto vazio.");
-                }
+            var response = await client.Models.GenerateContentAsync(
+                model: model,
+                contents: contents,
+                config: config,
+                cancellationToken: cancellationToken
+            );
 
-                return textResult;
-            }
-            catch (Exception ex) when (IsTimeoutException(ex))
+            if (response?.Candidates == null || response.Candidates.Count == 0 ||
+                response.Candidates[0].Content?.Parts == null || response.Candidates[0].Content.Parts.Count == 0)
             {
-                _logger.LogError(ex, "Timeout na chamada à API do Gemini.");
-                throw new LlmTimeoutException("A requisição ao provedor Gemini expirou.", ex);
+                throw new InvalidLlmResponseException("A resposta obtida do Gemini está vazia ou incompleta.");
             }
-            catch (Exception ex) when (IsApiKeyException(ex))
+
+            var textResult = response.Candidates[0].Content.Parts[0].Text;
+            if (string.IsNullOrWhiteSpace(textResult))
             {
-                _logger.LogError(ex, "Chave de API do Gemini inválida ou não autorizada.");
-                throw new InvalidApiKeyException("Chave de API do Gemini inválida.", ex);
+                throw new InvalidLlmResponseException("O texto retornado pelo modelo do Gemini está vazio.");
             }
-            catch (Exception ex) when (IsRateLimitException(ex))
-            {
-                _logger.LogError(ex, "Limite de requisições excedido no Gemini.");
-                throw new RateLimitExceededException("Limite de requisições atingido para a API do Gemini.", ex);
-            }
-            catch (Exception ex) when (ex is LlmException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erro de comunicação com a API do Gemini.");
-                throw new InvalidLlmResponseException("Erro inesperado na chamada ao Gemini.", ex);
-            }
+
+            return textResult;
         }
 
-        private bool IsTimeoutException(Exception ex)
+        private string NormalizeModelName(string? name)
         {
-            return ex is TimeoutException ||
-                   ex is TaskCanceledException ||
-                   ex is OperationCanceledException ||
-                   ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+            var clean = name.Trim();
+            if (clean.StartsWith("models/", StringComparison.OrdinalIgnoreCase))
+            {
+                clean = clean.Substring("models/".Length);
+            }
+            return clean;
         }
 
-        private bool IsApiKeyException(Exception ex)
+        private bool IsRetryableException(Exception ex)
         {
+            return ex is LlmTimeoutException || 
+                   ex is QuotaExceededException || 
+                   ex is ModelUnavailableException || 
+                   ex is HighDemandException;
+        }
+
+        private Exception TranslateException(Exception ex, string modelName)
+        {
+            if (ex is LlmException) return ex;
+
             var msg = ex.ToString();
-            return msg.Contains("API_KEY_INVALID", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("API key not valid", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("401", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("Forbidden", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("403", StringComparison.OrdinalIgnoreCase);
-        }
 
-        private bool IsRateLimitException(Exception ex)
-        {
-            var msg = ex.ToString();
-            return msg.Contains("429", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("Quota exceeded", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("RESOURCE_EXHAUSTED", StringComparison.OrdinalIgnoreCase) ||
-                   msg.Contains("Rate limit", StringComparison.OrdinalIgnoreCase);
+            if (msg.Contains("API_KEY_INVALID", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("API key not valid", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("401", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("Forbidden", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("403", StringComparison.OrdinalIgnoreCase))
+            {
+                return new InvalidApiKeyException($"Chave de API do Gemini inválida ou não autorizada.", ex);
+            }
+
+            if (msg.Contains("404", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("not found", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("no longer available", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("not available", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModelNotFoundException($"Modelo '{modelName}' inexistente ou descontinuado no Gemini.", ex);
+            }
+
+            if (msg.Contains("429", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("quota", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("RESOURCE_EXHAUSTED", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
+            {
+                return new QuotaExceededException($"Quota de requisições excedida para o modelo '{modelName}'.", ex);
+            }
+
+            if (msg.Contains("503", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("service unavailable", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ModelUnavailableException($"Modelo '{modelName}' está temporariamente indisponível no Gemini.", ex);
+            }
+
+            if (msg.Contains("high demand", StringComparison.OrdinalIgnoreCase) ||
+                msg.Contains("overloaded", StringComparison.OrdinalIgnoreCase))
+            {
+                return new HighDemandException($"Modelo '{modelName}' está sob alta demanda ou sobrecarregado.", ex);
+            }
+
+            if (ex is TimeoutException ||
+                ex is TaskCanceledException ||
+                ex is OperationCanceledException ||
+                msg.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+            {
+                return new LlmTimeoutException($"A requisição para o modelo '{modelName}' no Gemini expirou.", ex);
+            }
+
+            return new LlmCommunicationException($"Falha de comunicação ou erro inesperado com o modelo '{modelName}' no Gemini.", ex);
         }
 
         private InvoiceExtractionResult ParseLlmResponse(string rawJson)
         {
             try
             {
-                // Remove wrappers de markdown se presentes
                 string cleanJson = System.Text.RegularExpressions.Regex.Replace(rawJson, @"^```(?:json)?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
                 cleanJson = System.Text.RegularExpressions.Regex.Replace(cleanJson, @"```$", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Multiline);
                 cleanJson = cleanJson.Trim();

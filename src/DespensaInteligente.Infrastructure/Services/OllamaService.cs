@@ -35,14 +35,15 @@ namespace DespensaInteligente.Infrastructure.Services
         public async Task<InvoiceExtractionResult> ExtractInvoiceAsync(
             string prompt,
             Stream? file = null,
-            string? contentType = null)
+            string? contentType = null,
+            CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Iniciando extração de dados da Nota Fiscal com o provedor Ollama. Modelo: {Model}", _options.Model);
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             try
             {
-                string rawResponse = await GenerateAsync(prompt, file, contentType);
+                string rawResponse = await GenerateAsync(prompt, file, contentType, cancellationToken);
                 stopwatch.Stop();
 
                 _logger.LogInformation("Chamada ao Ollama realizada com sucesso em {ElapsedMs}ms.", stopwatch.ElapsedMilliseconds);
@@ -64,7 +65,8 @@ namespace DespensaInteligente.Infrastructure.Services
         public async Task<string> GenerateAsync(
             string prompt,
             Stream? file = null,
-            string? contentType = null)
+            string? contentType = null,
+            CancellationToken cancellationToken = default)
         {
             try
             {
@@ -78,7 +80,7 @@ namespace DespensaInteligente.Infrastructure.Services
                 if (file != null)
                 {
                     using var ms = new MemoryStream();
-                    await file.CopyToAsync(ms);
+                    await file.CopyToAsync(ms, cancellationToken);
                     string base64Image = Convert.ToBase64String(ms.ToArray());
 
                     messages.Add(new
@@ -106,7 +108,7 @@ namespace DespensaInteligente.Infrastructure.Services
 
                 request.Content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.SendAsync(request);
+                var response = await _httpClient.SendAsync(request, cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
                 {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using DespensaInteligente.Application.Common.DTOs;
@@ -14,8 +15,8 @@ namespace DespensaInteligente.Application.Services
 {
     public interface INfeService
     {
-        Task<InvoiceExtractionResult> ConsultarEExtrairAsync(string? url, string? chave);
-        Task<NfeUploadResultDto> UploadEExtrairAsync(string fileName, Stream fileStream);
+        Task<InvoiceExtractionResult> ConsultarEExtrairAsync(string? url, string? chave, CancellationToken cancellationToken = default);
+        Task<NfeUploadResultDto> UploadEExtrairAsync(string fileName, Stream fileStream, CancellationToken cancellationToken = default);
         Task<Compra> ImportarExtracaoAsync(NfeImportDto input);
         Task<IEnumerable<NotaFiscal>> GetHistoricoAsync();
     }
@@ -45,18 +46,18 @@ namespace DespensaInteligente.Application.Services
             _compraService = compraService;
         }
 
-        public async Task<InvoiceExtractionResult> ConsultarEExtrairAsync(string? url, string? chave)
+        public async Task<InvoiceExtractionResult> ConsultarEExtrairAsync(string? url, string? chave, CancellationToken cancellationToken = default)
         {
             // Query SEFAZ for raw HTML/XML content
             string rawContent = await _sefazService.ConsultarNfeAsync(url, chave);
 
             // Pass raw XML/HTML contents to the LLM to get structured DTO
-            var extraction = await _llmService.ExtractInvoiceAsync(rawContent);
+            var extraction = await _llmService.ExtractInvoiceAsync(rawContent, null, null, cancellationToken);
 
             return extraction;
         }
 
-        public async Task<NfeUploadResultDto> UploadEExtrairAsync(string fileName, Stream fileStream)
+        public async Task<NfeUploadResultDto> UploadEExtrairAsync(string fileName, Stream fileStream, CancellationToken cancellationToken = default)
         {
             var userId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("Usuário não autenticado.");
 
@@ -71,7 +72,7 @@ namespace DespensaInteligente.Application.Services
                 fileStream.Position = 0;
                 using var reader = new StreamReader(fileStream);
                 string fileContent = await reader.ReadToEndAsync();
-                extraction = await _llmService.ExtractInvoiceAsync(fileContent);
+                extraction = await _llmService.ExtractInvoiceAsync(fileContent, null, null, cancellationToken);
             }
             else
             {
@@ -86,7 +87,7 @@ namespace DespensaInteligente.Application.Services
                 };
 
                 fileStream.Position = 0;
-                extraction = await _llmService.ExtractInvoiceAsync("Extraia os itens desta nota fiscal.", fileStream, contentType);
+                extraction = await _llmService.ExtractInvoiceAsync("Extraia os itens desta nota fiscal.", fileStream, contentType, cancellationToken);
             }
 
             return new NfeUploadResultDto(
