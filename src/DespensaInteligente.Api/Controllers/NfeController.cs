@@ -23,7 +23,7 @@ namespace DespensaInteligente.Api.Controllers
         }
 
         [HttpPost("consultar")]
-        [ProducesResponseType(typeof(NfeExtractionResultDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(InvoiceExtractionResult), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> Consultar([FromBody] NfeConsultaRequestDto request)
         {

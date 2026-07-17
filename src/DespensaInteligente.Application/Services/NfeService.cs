@@ -7,13 +7,14 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using DespensaInteligente.Application.Common.DTOs;
 using DespensaInteligente.Application.Common.Interfaces;
+using DespensaInteligente.Application.Interfaces;
 using DespensaInteligente.Domain.Entities;
 
 namespace DespensaInteligente.Application.Services
 {
     public interface INfeService
     {
-        Task<NfeExtractionResultDto> ConsultarEExtrairAsync(string? url, string? chave);
+        Task<InvoiceExtractionResult> ConsultarEExtrairAsync(string? url, string? chave);
         Task<NfeUploadResultDto> UploadEExtrairAsync(string fileName, Stream fileStream);
         Task<Compra> ImportarExtracaoAsync(NfeImportDto input);
         Task<IEnumerable<NotaFiscal>> GetHistoricoAsync();
@@ -44,13 +45,13 @@ namespace DespensaInteligente.Application.Services
             _compraService = compraService;
         }
 
-        public async Task<NfeExtractionResultDto> ConsultarEExtrairAsync(string? url, string? chave)
+        public async Task<InvoiceExtractionResult> ConsultarEExtrairAsync(string? url, string? chave)
         {
             // Query SEFAZ for raw HTML/XML content
             string rawContent = await _sefazService.ConsultarNfeAsync(url, chave);
 
             // Pass raw XML/HTML contents to the LLM to get structured DTO
-            var extraction = await _llmService.ExtractNfeDataAsync(rawContent);
+            var extraction = await _llmService.ExtractInvoiceAsync(rawContent);
 
             return extraction;
         }
@@ -62,27 +63,31 @@ namespace DespensaInteligente.Application.Services
             // 1. Save uploaded file to filesystem storage
             string relativePath = await _storageService.SaveFileAsync(userId.ToString(), fileName, fileStream);
 
-            // Read contents to feed the LLM
-            // Note: If PDF/image, a production solution would extract OCR first. 
-            // In our implementation, we read text/XML directly, and if binary (like PDF/image), 
-            // we simulate/mock OCR text extraction, or if it is XML/HTML we parse directly.
-            string fileContent = "";
             string extension = Path.GetExtension(fileName).ToLower();
+            InvoiceExtractionResult extraction;
 
             if (extension == ".xml" || extension == ".html" || extension == ".htm" || extension == ".txt")
             {
                 fileStream.Position = 0;
                 using var reader = new StreamReader(fileStream);
-                fileContent = await reader.ReadToEndAsync();
+                string fileContent = await reader.ReadToEndAsync();
+                extraction = await _llmService.ExtractInvoiceAsync(fileContent);
             }
             else
             {
-                // PDF or Image upload fallback - simulated text extractor
-                fileContent = GetMockOcrContent(fileName);
-            }
+                // PDF or Image upload - pass the stream directly to LLM for native multimodal extraction
+                string contentType = extension switch
+                {
+                    ".pdf" => "application/pdf",
+                    ".png" => "image/png",
+                    ".gif" => "image/gif",
+                    ".webp" => "image/webp",
+                    _ => "image/jpeg"
+                };
 
-            // Extract with LLM
-            var extraction = await _llmService.ExtractNfeDataAsync(fileContent);
+                fileStream.Position = 0;
+                extraction = await _llmService.ExtractInvoiceAsync("Extraia os itens desta nota fiscal.", fileStream, contentType);
+            }
 
             return new NfeUploadResultDto(
                 extraction,
@@ -121,7 +126,7 @@ namespace DespensaInteligente.Application.Services
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 ChaveAcesso = cleanChave,
-                Mercado = input.Extracao.Mercado,
+                Mercado = input.Extracao.Estabelecimento,
                 DataCompra = input.Extracao.DataCompra,
                 ValorTotal = input.Extracao.ValorTotal,
                 ArquivoNome = input.ArquivoNome,
@@ -136,7 +141,7 @@ namespace DespensaInteligente.Application.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Mercado = input.Extracao.Mercado,
+                Mercado = input.Extracao.Estabelecimento,
                 DataCompra = input.Extracao.DataCompra,
                 ValorTotal = input.Extracao.ValorTotal,
                 NotaFiscalId = notaFiscal.Id,
@@ -154,7 +159,7 @@ namespace DespensaInteligente.Application.Services
                 foreach (var itemExtracted in input.Extracao.Itens)
                 {
                     // Match with user catalog or create new catalog entry
-                    var itemId = await _compraService.GetOrCreateItemFromCatalogAsync(userId, itemExtracted.Nome, itemExtracted.Unidade);
+                    var itemId = await _compraService.GetOrCreateItemFromCatalogAsync(userId, itemExtracted.Descricao, itemExtracted.Unidade);
 
                     // Create CompraItem
                     var compraItem = new CompraItem
@@ -163,11 +168,11 @@ namespace DespensaInteligente.Application.Services
                         UserId = userId,
                         CompraId = compra.Id,
                         ItemId = itemId,
-                        NomeOriginal = itemExtracted.Nome,
+                        NomeOriginal = itemExtracted.Descricao,
                         Quantidade = itemExtracted.Quantidade,
                         Unidade = itemExtracted.Unidade,
-                        PrecoUnitario = itemExtracted.PrecoUnitario,
-                        PrecoTotal = itemExtracted.PrecoTotal
+                        PrecoUnitario = itemExtracted.ValorUnitario,
+                        PrecoTotal = itemExtracted.ValorTotal
                     };
                     _context.CompraItens.Add(compraItem);
 
@@ -179,7 +184,7 @@ namespace DespensaInteligente.Application.Services
                         ItemId = itemId,
                         CompraId = compra.Id,
                         Quantidade = itemExtracted.Quantidade,
-                        Validade = null, // LLM parsing rarely retrieves expiration dates (usually they aren't in invoice XML/HTML). Users can edit them later.
+                        Validade = null,
                         Local = "despensa",
                         Consumido = false,
                         CreatedAt = DateTimeOffset.UtcNow,
@@ -202,32 +207,15 @@ namespace DespensaInteligente.Application.Services
                 .OrderByDescending(nf => nf.CreatedAt)
                 .ToListAsync();
         }
-
-        private string GetMockOcrContent(string fileName)
-        {
-            // Simulated OCR parsing output for images/PDFs
-            return $@"
-            CHAVE DE ACESSO: 35260712345678000190650010001234561001234567
-            SUPERMERCADO DIA A DIA LTDA
-            CNPJ: 12.345.678/0001-90
-            DATA DA COMPRA: {DateTime.Today:dd/MM/yyyy}
-            VALOR TOTAL: 87.90
-            
-            ITENS:
-            1. MACARRAO SPAGHETTI 500G - Qtd: 3 - Un: pct - Preco Unit: 3.50 - Total: 10.50
-            2. LEITE INTEGRAL UHT 1L - Qtd: 12 - Un: l - Preco Unit: 4.95 - Total: 59.40
-            3. AZEITE DE OLIVA EXTRA VIRGEM 500ML - Qtd: 1 - Un: ml - Preco Unit: 18.00 - Total: 18.00
-            ";
-        }
     }
 
     public class NfeUploadResultDto
     {
-        public NfeExtractionResultDto Extracao { get; }
+        public InvoiceExtractionResult Extracao { get; }
         public string ArquivoNome { get; }
         public string ArquivoPath { get; }
 
-        public NfeUploadResultDto(NfeExtractionResultDto extracao, string arquivoNome, string arquivoPath)
+        public NfeUploadResultDto(InvoiceExtractionResult extracao, string arquivoNome, string arquivoPath)
         {
             Extracao = extracao;
             ArquivoNome = arquivoNome;
@@ -237,7 +225,7 @@ namespace DespensaInteligente.Application.Services
 
     public class NfeImportDto
     {
-        public NfeExtractionResultDto Extracao { get; set; } = new();
+        public InvoiceExtractionResult Extracao { get; set; } = new();
         public string? ArquivoNome { get; set; }
         public string? ArquivoPath { get; set; }
     }
