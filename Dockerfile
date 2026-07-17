@@ -32,6 +32,8 @@ RUN mkdir -p /app/storage /app/logs && chmod -R 777 /app/storage /app/logs
 
 # Define port environment variables (Render exposes PORT)
 ENV ASPNETCORE_HTTP_PORTS=8080
+ENV DOTNET_hostBuilder__reloadConfigOnChange=false
+ENV DOTNET_USE_POLLING_FILE_WATCHER=true
 EXPOSE 8080
 
 # Run the API, dynamically binding to the port provided by Render (defaulting to 8080 if not set)

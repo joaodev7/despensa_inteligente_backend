@@ -12,7 +12,8 @@ namespace DespensaInteligente.Infrastructure
     {
         public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var connectionString = configuration.GetConnectionString("DefaultConnection") 
+                                   ?? configuration.GetConnectionString("Default");
 
             services.AddDbContext<AppDbContext>(options =>
                 options.UseNpgsql(connectionString));
