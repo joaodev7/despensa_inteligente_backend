@@ -7,26 +7,26 @@ using DespensaInteligente.Infrastructure.InvoiceScanner.Parsers;
 namespace DespensaInteligente.Infrastructure.InvoiceScanner.Providers;
 
 /// <summary>
-/// Provider de integração específico para o portal da SEFAZ Ceará (SEFAZ-CE).
-/// Responsabilidades:
-/// - Validar se a URL pertence ao Ceará
-/// - Efetuar o download do HTML da NFC-e via IInvoiceHttpClient
-/// - Invocar o parser exclusivo de Ceará (ISefazCeHtmlParser)
-/// - Retornar o InvoiceDto normalizado
+/// Provider de integração específico para a SEFAZ Ceará (SEFAZ-CE).
+/// Fluxo:
+/// QRCode URL -> SefazCeQrCodeParser -> SefazCeQrCodePayload -> SefazCeApiClient (POST) -> SefazCeApiResponse.Xml -> SefazCeHtmlParser -> InvoiceDto
 /// </summary>
 public class SefazCeProvider : IInvoiceProvider
 {
-    private readonly IInvoiceHttpClient _httpClient;
-    private readonly ISefazCeHtmlParser _parser;
+    private readonly ISefazCeQrCodeParser _qrCodeParser;
+    private readonly ISefazCeApiClient _apiClient;
+    private readonly ISefazCeHtmlParser _htmlParser;
     private readonly ILogger<SefazCeProvider> _logger;
 
     public SefazCeProvider(
-        IInvoiceHttpClient httpClient,
-        ISefazCeHtmlParser parser,
+        ISefazCeQrCodeParser qrCodeParser,
+        ISefazCeApiClient apiClient,
+        ISefazCeHtmlParser htmlParser,
         ILogger<SefazCeProvider> logger)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _parser = parser ?? throw new ArgumentNullException(nameof(parser));
+        _qrCodeParser = qrCodeParser ?? throw new ArgumentNullException(nameof(qrCodeParser));
+        _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
+        _htmlParser = htmlParser ?? throw new ArgumentNullException(nameof(htmlParser));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -36,7 +36,6 @@ public class SefazCeProvider : IInvoiceProvider
 
         if (!Uri.TryCreate(qrCode, UriKind.Absolute, out var uri)) return false;
 
-        // Domínios da SEFAZ-CE conhecidos
         var host = uri.Host.ToLowerInvariant();
         return host.EndsWith("sefaz.ce.gov.br", StringComparison.OrdinalIgnoreCase)
                || host.Contains("sefaz-ce")
@@ -47,13 +46,16 @@ public class SefazCeProvider : IInvoiceProvider
     {
         _logger.LogInformation("SefazCeProvider acionado para processar QRCode da SEFAZ CE: {QrCodeUrl}", qrCode);
 
-        // 1. Download do HTML
-        var html = await _httpClient.DownloadHtmlAsync(qrCode, cancellationToken);
+        // 1. Extração dos parâmetros do QRCode (Chave, Versão, CSC, Hash)
+        var payload = _qrCodeParser.Parse(qrCode);
 
-        // 2. Parsing do HTML com HtmlAgilityPack
-        var invoiceDomain = _parser.Parse(html);
+        // 2. Chamada POST para a API REST oficial da SEFAZ-CE (/nfce/api/notasFiscal/qrcodevX/)
+        var apiResponse = await _apiClient.FetchInvoiceHtmlAsync(payload, cancellationToken);
 
-        // 3. Mapeamento para DTO normalizado
+        // 3. Parsing do HTML contido na propriedade 'xml' do JSON de resposta
+        var invoiceDomain = _htmlParser.Parse(apiResponse.Xml);
+
+        // 4. Mapeamento para o DTO normalizado da aplicação
         return new InvoiceDto(
             StoreName: invoiceDomain.StoreName,
             Cnpj: invoiceDomain.Cnpj,

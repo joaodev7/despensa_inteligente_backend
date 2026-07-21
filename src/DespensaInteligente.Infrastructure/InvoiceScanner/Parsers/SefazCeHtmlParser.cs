@@ -1,34 +1,42 @@
 using System.Globalization;
 using System.Net;
 using HtmlAgilityPack;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using DespensaInteligente.Domain.InvoiceScanner.Entities;
 using DespensaInteligente.Domain.InvoiceScanner.ValueObjects;
 
 namespace DespensaInteligente.Infrastructure.InvoiceScanner.Parsers;
 
 /// <summary>
-/// Parser especializado para converter a página HTML da NFC-e da SEFAZ Ceará (SEFAZ-CE) na entidade Invoice.
-/// Utiliza HtmlAgilityPack e manipulação segura de strings sem utilizar Expressões Regulares (Regex).
+/// Parser especializado e de alta performance para o layout HTML real da SEFAZ Ceará (SEFAZ-CE).
+/// Mapeamento estrito da estrutura DOM oficial: table#tabResult > tbody > tr.
+/// Sem utilização de Regex.
 /// </summary>
 public class SefazCeHtmlParser : ISefazCeHtmlParser
 {
-    private static readonly CultureInfo PtBrCulture = new CultureInfo("pt-BR");
+    private static readonly CultureInfo PtBrCulture = CultureInfo.GetCultureInfo("pt-BR");
+    private readonly ILogger<SefazCeHtmlParser> _logger;
+
+    public SefazCeHtmlParser(ILogger<SefazCeHtmlParser>? logger = null)
+    {
+        _logger = logger ?? NullLogger<SefazCeHtmlParser>.Instance;
+    }
 
     public Invoice Parse(string html)
     {
         if (string.IsNullOrWhiteSpace(html))
         {
+            _logger.LogError("Tentativa de parsing com HTML vazio.");
             throw new InvalidOperationException("O HTML fornecido para parsing está vazio.");
         }
+
+        _logger.LogInformation("Iniciando parsing da NFC-e SEFAZ-CE.");
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
 
-        // Verificar se a nota fiscal não foi encontrada ou portal retornou mensagem de erro
-        if (IsInvoiceNotFound(doc))
-        {
-            throw new InvalidOperationException("Nota fiscal não encontrada no sistema da SEFAZ CE.");
-        }
+        ValidateInvoiceExists(doc);
 
         var storeName = ExtractStoreName(doc);
         var cnpj = ExtractCnpj(doc);
@@ -39,108 +47,77 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
         var consumer = ExtractConsumer(doc);
         var items = ExtractItems(doc);
 
-        if (items.Count == 0)
-        {
-            throw new InvalidOperationException("Nenhum item foi encontrado no HTML da nota fiscal da SEFAZ CE. O layout pode ter sido alterado.");
-        }
+        var invoiceTotal = total > 0 ? total : items.Sum(i => i.Total);
+
+        _logger.LogInformation("Parsing da NFC-e SEFAZ-CE concluído com sucesso. Loja: {StoreName}, CNPJ: {Cnpj}, Total: {Total}, Itens: {Count}",
+            storeName, cnpj, invoiceTotal, items.Count);
 
         return new Invoice(
             storeName: storeName,
             cnpj: cnpj,
             issueDate: issueDate,
             accessKey: accessKey,
-            total: total > 0 ? total : items.Sum(i => i.Total),
+            total: invoiceTotal,
             paymentMethod: paymentMethod,
             consumer: consumer,
             items: items
         );
     }
 
-    private static bool IsInvoiceNotFound(HtmlDocument doc)
+    private void ValidateInvoiceExists(HtmlDocument doc)
     {
-        var errorNode = doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'alert') or contains(@class, 'erro') or @id='divErros']")
-                        ?? doc.DocumentNode.SelectSingleNode("//span[contains(text(), 'não encontrada') or contains(text(), 'Nao Encontrada')]");
-
+        var errorNode = doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'alert') or @id='divErros'] | //span[contains(text(), 'não encontrada')]");
         if (errorNode != null)
         {
-            var text = WebUtility.HtmlDecode(errorNode.InnerText);
+            var text = CleanText(errorNode.InnerText);
             if (text.Contains("não encontrada", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("inexistente", StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                _logger.LogWarning("Portal SEFAZ-CE indicou que a nota fiscal não existe.");
+                throw new InvalidOperationException("Nota fiscal não encontrada no sistema da SEFAZ CE.");
             }
         }
-        return false;
     }
 
     private static string ExtractStoreName(HtmlDocument doc)
     {
-        // Tenta seletores comuns da SEFAZ CE (#txtNomeFantasia, .txtTopo, #u20, .txtCenter)
         var node = doc.DocumentNode.SelectSingleNode("//*[@id='txtNomeFantasia']")
                    ?? doc.DocumentNode.SelectSingleNode("//*[@id='txtRazaoSocial']")
-                   ?? doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'txtTopo')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//table[contains(@class, 'head')]//td[contains(@class, 'txtTopo')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[@id='u20']")
-                   ?? doc.DocumentNode.SelectSingleNode("//div[contains(@id, 'conteudo')]//div[contains(@class, 'txtCenter')][1]");
+                   ?? doc.DocumentNode.SelectSingleNode("//div[contains(@class, 'txtTopo')]");
 
-        if (node != null)
-        {
-            var text = CleanText(node.InnerText);
-            if (!string.IsNullOrWhiteSpace(text)) return text;
-        }
-
-        return "ESTABELECIMENTO SEFAZ-CE";
+        var storeName = node != null ? CleanText(node.InnerText) : string.Empty;
+        return string.IsNullOrWhiteSpace(storeName) ? "ESTABELECIMENTO SEFAZ-CE" : storeName;
     }
 
     private static string ExtractCnpj(HtmlDocument doc)
     {
         var node = doc.DocumentNode.SelectSingleNode("//*[@id='txtCnpj']")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'txtCNPJ')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(text(), 'CNPJ')]");
+                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'txtCNPJ')]");
 
-        if (node != null)
-        {
-            var digits = ExtractDigits(node.InnerText);
-            if (digits.Length == 14)
-            {
-                return ConvertToCnpjFormat(digits);
-            }
-            if (digits.Length > 0)
-            {
-                return digits;
-            }
-        }
+        if (node == null) return string.Empty;
 
-        return string.Empty;
+        var digits = ExtractDigits(node.InnerText);
+        return digits.Length == 14 ? FormatCnpj(digits) : digits;
     }
 
     private static string ExtractAccessKey(HtmlDocument doc)
     {
         var node = doc.DocumentNode.SelectSingleNode("//*[@id='chave']")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'chave')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//span[contains(@class, 'spanChave')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[@id='nfe-chave']");
+                   ?? doc.DocumentNode.SelectSingleNode("//span[contains(@class, 'spanChave')]");
 
         if (node != null)
         {
             var digits = ExtractDigits(node.InnerText);
-            if (digits.Length == 44)
-            {
-                return digits;
-            }
+            if (digits.Length == 44) return digits;
         }
 
-        // Procura nó de texto com 44 dígitos sem regex
-        var allSpans = doc.DocumentNode.SelectNodes("//span | //td | //div");
-        if (allSpans != null)
+        var nodes = doc.DocumentNode.SelectNodes("//span | //td | //div");
+        if (nodes != null)
         {
-            foreach (var span in allSpans)
+            foreach (var n in nodes)
             {
-                var digits = ExtractDigits(span.InnerText);
-                if (digits.Length == 44)
-                {
-                    return digits;
-                }
+                var d = ExtractDigits(n.InnerText);
+                if (d.Length == 44) return d;
             }
         }
 
@@ -149,19 +126,17 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
 
     private static DateTime ExtractIssueDate(HtmlDocument doc)
     {
-        var nodes = doc.DocumentNode.SelectNodes("//*[contains(text(), 'Emissão') or contains(text(), 'Emissao') or @id='txtDataEmissao']");
-        if (nodes != null)
+        var node = doc.DocumentNode.SelectSingleNode("//*[@id='txtDataEmissao']")
+                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(text(), 'Emissão')]");
+
+        if (node != null)
         {
-            foreach (var node in nodes)
+            var text = CleanText(node.InnerText);
+            foreach (var token in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                var text = CleanText(node.InnerText);
-                var parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                foreach (var part in parts)
+                if (DateTime.TryParse(token, PtBrCulture, DateTimeStyles.None, out var date))
                 {
-                    if (DateTime.TryParse(part, PtBrCulture, DateTimeStyles.None, out var date))
-                    {
-                        return date;
-                    }
+                    return date;
                 }
             }
         }
@@ -172,33 +147,20 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
     private static string ExtractPaymentMethod(HtmlDocument doc)
     {
         var node = doc.DocumentNode.SelectSingleNode("//*[@id='txtFormaPagamento']")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'formaPagamento')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//td[contains(text(), 'Forma de pagamento')]/following-sibling::td")
-                   ?? doc.DocumentNode.SelectSingleNode("//span[contains(text(), 'Cartão') or contains(text(), 'Dinheiro') or contains(text(), 'Pix')]");
+                   ?? doc.DocumentNode.SelectSingleNode("//td[contains(text(), 'Forma de pagamento')]/following-sibling::td");
 
-        if (node != null)
-        {
-            var text = CleanText(node.InnerText);
-            if (!string.IsNullOrWhiteSpace(text)) return text;
-        }
-
-        return "Outros / Não informado";
+        var text = node != null ? CleanText(node.InnerText) : string.Empty;
+        return string.IsNullOrWhiteSpace(text) ? "Não Informado" : text;
     }
 
     private static decimal ExtractTotalValue(HtmlDocument doc)
     {
         var node = doc.DocumentNode.SelectSingleNode("//*[@id='txtTotal']")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'totalNf')]//span[contains(@class, 'txtMax')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'totalNf')]")
-                   ?? doc.DocumentNode.SelectSingleNode("//td[contains(text(), 'Valor a pagar')]/following-sibling::td")
-                   ?? doc.DocumentNode.SelectSingleNode("//span[contains(@class, 'txtMax')]");
+                   ?? doc.DocumentNode.SelectSingleNode("//*[contains(@class, 'totalNf')]//span[contains(@class, 'txtMax')]");
 
-        if (node != null)
+        if (node != null && TryParseDecimal(node.InnerText, out var val))
         {
-            if (TryParseDecimal(node.InnerText, out var val))
-            {
-                return val;
-            }
+            return val;
         }
 
         return 0m;
@@ -210,19 +172,14 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
         string? name = null;
         string? address = null;
 
-        var cpfNode = doc.DocumentNode.SelectSingleNode("//*[@id='txtCpf']")
-                      ?? doc.DocumentNode.SelectSingleNode("//*[contains(text(), 'CPF do Consumidor')]");
+        var cpfNode = doc.DocumentNode.SelectSingleNode("//*[@id='txtCpf']");
         if (cpfNode != null)
         {
             var digits = ExtractDigits(cpfNode.InnerText);
-            if (digits.Length == 11)
-            {
-                cpf = digits;
-            }
+            if (digits.Length == 11) cpf = digits;
         }
 
-        var nameNode = doc.DocumentNode.SelectSingleNode("//*[@id='txtNomeConsumer']")
-                       ?? doc.DocumentNode.SelectSingleNode("//*[contains(text(), 'Nome do Consumidor')]");
+        var nameNode = doc.DocumentNode.SelectSingleNode("//*[@id='txtNomeConsumer']");
         if (nameNode != null)
         {
             name = CleanText(nameNode.InnerText);
@@ -237,123 +194,133 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
         return new Consumer(cpf, name, address);
     }
 
-    private static List<InvoiceItem> ExtractItems(HtmlDocument doc)
+    private List<InvoiceItem> ExtractItems(HtmlDocument doc)
     {
         var items = new List<InvoiceItem>();
 
-        // SEFAZ CE costuma listar itens na tabela #tabResult ou em trs com id ou classe contendo 'Item'
-        var itemRows = doc.DocumentNode.SelectNodes("//table[@id='tabResult']//tr[starts-with(@id, 'Item')]")
-                       ?? doc.DocumentNode.SelectNodes("//table[@id='tabResult']//tr")
-                       ?? doc.DocumentNode.SelectNodes("//tr[contains(@class, 'trItem')]")
-                       ?? doc.DocumentNode.SelectNodes("//div[contains(@class, 'linhaItem')]");
+        // Mapeamento estrito do layout oficial SEFAZ-CE: table#tabResult > tbody > tr
+        var itemRows = doc.DocumentNode.SelectNodes("//table[@id='tabResult']//tr");
 
-        if (itemRows == null)
+        if (itemRows == null || itemRows.Count == 0)
         {
-            return items;
+            LogDiagnosticsAndThrow(doc);
         }
+
+        _logger.LogInformation("Tabela de produtos encontrada. Quantidade de linhas encontradas: {Count}", itemRows!.Count);
 
         foreach (var row in itemRows)
         {
-            // Pular cabeçalho
-            if (row.SelectSingleNode("./th") != null) continue;
+            var cells = row.SelectNodes("./td");
+            if (cells == null || cells.Count < 2) continue;
 
-            var descNode = row.SelectSingleNode(".//*[contains(@class, 'txtTit')]")
-                           ?? row.SelectSingleNode(".//*[contains(@class, 'spanItem')]")
-                           ?? row.SelectSingleNode(".//td[1]");
+            var firstCell = cells[0];
+            var secondCell = cells[1];
 
+            // 1. Descrição (span.txtTit)
+            var descNode = firstCell.SelectSingleNode("./span[contains(@class, 'txtTit')]");
             if (descNode == null) continue;
 
             var description = CleanText(descNode.InnerText);
             if (string.IsNullOrWhiteSpace(description) || description.Equals("Descrição", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            // Extrair Código (Código: (xxx))
-            var codeNode = row.SelectSingleNode(".//*[contains(@class, 'RCod')]")
-                           ?? row.SelectSingleNode(".//*[contains(@class, 'spanCod')]")
-                           ?? row.SelectSingleNode(".//*[contains(text(), 'Código')]");
-            var code = codeNode != null ? ExtractCodeValue(codeNode.InnerText) : string.Empty;
+            // 2. Código (span.RCod) - Ex: (Código:401534)
+            var codeNode = firstCell.SelectSingleNode("./span[contains(@class, 'RCod')]");
+            var code = codeNode != null ? ParseCode(codeNode.InnerText) : string.Empty;
 
-            // Extrair Quantidade
-            var qtyNode = row.SelectSingleNode(".//*[contains(@class, 'Rqty')]")
-                          ?? row.SelectSingleNode(".//*[contains(@class, 'spanQty')]")
-                          ?? row.SelectSingleNode(".//*[contains(text(), 'Qtde')]");
-            var quantity = qtyNode != null ? ExtractDecimalValueAfterPrefix(qtyNode.InnerText, "Qtde.:", "Qtd.:", "Qtde:") : 1m;
+            // 3. Quantidade (span.Rqtd) - Ex: Qtde.:1,965
+            var qtdNode = firstCell.SelectSingleNode("./span[contains(@class, 'Rqtd')]")
+                          ?? firstCell.SelectSingleNode("./span[contains(@class, 'Rqty')]");
+            var quantity = qtdNode != null ? ParseValueAfterPrefix(qtdNode.InnerText, "Qtde.:", "Qtde:", "Qtd.:") : 1m;
 
-            // Extrair Unidade (UN)
-            var unitNode = row.SelectSingleNode(".//*[contains(@class, 'RUN')]")
-                           ?? row.SelectSingleNode(".//*[contains(@class, 'spanUn')]")
-                           ?? row.SelectSingleNode(".//*[contains(text(), 'UN:')]");
-            var unit = unitNode != null ? ExtractUnitValue(unitNode.InnerText) : "UN";
+            // 4. Unidade (span.RUN) - Ex: UN:KG
+            var unitNode = firstCell.SelectSingleNode("./span[contains(@class, 'RUN')]");
+            var unit = unitNode != null ? ParseUnit(unitNode.InnerText) : "UN";
 
-            // Extrair Valor Unitário
-            var priceNode = row.SelectSingleNode(".//*[contains(@class, 'RvlUnit')]")
-                            ?? row.SelectSingleNode(".//*[contains(@class, 'spanVlUnit')]")
-                            ?? row.SelectSingleNode(".//*[contains(text(), 'Vl. Unit.')]");
-            var unitPrice = priceNode != null ? ExtractDecimalValueAfterPrefix(priceNode.InnerText, "Vl. Unit.:", "Vl.Unit.:", "Vl. Unit:") : 0m;
+            // 5. Preço Unitário (span.RvlUnit) - Ex: Vl. Unit.:17,99
+            var priceNode = firstCell.SelectSingleNode("./span[contains(@class, 'RvlUnit')]");
+            var unitPrice = priceNode != null ? ParseValueAfterPrefix(priceNode.InnerText, "Vl. Unit.:", "Vl.Unit.:", "Vl. Unit:") : 0m;
 
-            // Extrair Valor Total
-            var totalNode = row.SelectSingleNode(".//*[contains(@class, 'valor')]")
-                            ?? row.SelectSingleNode(".//*[contains(@class, 'spanVlTotal')]")
-                            ?? row.SelectSingleNode(".//td[last()]");
-            var itemTotal = totalNode != null && TryParseDecimal(totalNode.InnerText, out var totVal) ? totVal : Math.Round(quantity * unitPrice, 2);
+            // 6. Valor Total (td[2]) - Ex: <td class="txtTit noWrap" align="right">35,35</td>
+            var total = TryParseDecimal(secondCell.InnerText, out var totalVal) ? totalVal : Math.Round(quantity * unitPrice, 2);
 
-            if (unitPrice == 0m && itemTotal > 0 && quantity > 0)
+            // Validações
+            if (quantity <= 0) quantity = 1m;
+
+            if (unitPrice <= 0 && total > 0)
             {
-                unitPrice = Math.Round(itemTotal / quantity, 4);
+                unitPrice = Math.Round(total / quantity, 4);
             }
 
-            items.Add(new InvoiceItem(description, code, quantity, unit, unitPrice, itemTotal));
+            if (total <= 0 && unitPrice > 0)
+            {
+                total = Math.Round(quantity * unitPrice, 2);
+            }
+
+            _logger.LogInformation("Produto encontrado: {Description} | Quantidade: {Quantity} | Preço Unitário: {UnitPrice} | Valor Total: {Total}",
+                description, quantity, unitPrice, total);
+
+            items.Add(new InvoiceItem(description, code, quantity, unit, unitPrice, total));
+        }
+
+        if (items.Count == 0)
+        {
+            LogDiagnosticsAndThrow(doc);
         }
 
         return items;
     }
 
-    private static string CleanText(string input)
+    private void LogDiagnosticsAndThrow(HtmlDocument doc)
     {
-        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
-        var decoded = WebUtility.HtmlDecode(input);
-        return string.Join(" ", decoded.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)).Trim();
+        var tablesCount = doc.DocumentNode.SelectNodes("//table")?.Count ?? 0;
+        var rowsCount = doc.DocumentNode.SelectNodes("//tr")?.Count ?? 0;
+        var txtTitCount = doc.DocumentNode.SelectNodes("//span[contains(@class, 'txtTit')]")?.Count ?? 0;
+        var rCodCount = doc.DocumentNode.SelectNodes("//span[contains(@class, 'RCod')]")?.Count ?? 0;
+        var rQtdCount = doc.DocumentNode.SelectNodes("//span[contains(@class, 'Rqtd')]")?.Count ?? 0;
+        var rUnCount = doc.DocumentNode.SelectNodes("//span[contains(@class, 'RUN')]")?.Count ?? 0;
+        var rVlUnitCount = doc.DocumentNode.SelectNodes("//span[contains(@class, 'RvlUnit')]")?.Count ?? 0;
+
+        _logger.LogError("Nenhum produto foi encontrado no HTML da SEFAZ-CE. Estatísticas do DOM: " +
+                         "quantidade de <table>: {TablesCount}, " +
+                         "quantidade de <tr>: {RowsCount}, " +
+                         "quantidade de <span class=\"txtTit\">: {TxtTitCount}, " +
+                         "quantidade de <span class=\"RCod\">: {RCodCount}, " +
+                         "quantidade de <span class=\"Rqtd\">: {RQtdCount}, " +
+                         "quantidade de <span class=\"RUN\">: {RUnCount}, " +
+                         "quantidade de <span class=\"RvlUnit\">: {RVlUnitCount}",
+            tablesCount, rowsCount, txtTitCount, rCodCount, rQtdCount, rUnCount, rVlUnitCount);
+
+        throw new InvalidOperationException("Nenhum item foi encontrado no HTML da nota fiscal da SEFAZ CE.");
     }
 
-    private static string ExtractDigits(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return string.Empty;
-        return new string(input.Where(char.IsDigit).ToArray());
-    }
-
-    private static string ConvertToCnpjFormat(string digits)
-    {
-        if (digits.Length != 14) return digits;
-        return $"{digits[..2]}.{digits.Substring(2, 3)}.{digits.Substring(5, 3)}/{digits.Substring(8, 4)}-{digits[12..]}";
-    }
-
-    private static string ExtractCodeValue(string text)
+    private static string ParseCode(string text)
     {
         var cleaned = CleanText(text);
         var idx = cleaned.IndexOf("Código:", StringComparison.OrdinalIgnoreCase);
         if (idx >= 0)
         {
-            var substring = cleaned[(idx + 7)..].Trim();
-            var endIdx = substring.IndexOf(')');
-            if (endIdx > 0) return substring[..endIdx].Replace("(", "").Trim();
-            return substring.Split(' ')[0];
+            var portion = cleaned[(idx + 7)..].Trim();
+            var endIdx = portion.IndexOf(')');
+            if (endIdx >= 0) return portion[..endIdx].Trim();
+            return portion.Split(' ')[0].Trim();
         }
         return ExtractDigits(cleaned);
     }
 
-    private static string ExtractUnitValue(string text)
+    private static string ParseUnit(string text)
     {
         var cleaned = CleanText(text);
         var idx = cleaned.IndexOf("UN:", StringComparison.OrdinalIgnoreCase);
         if (idx >= 0)
         {
-            var substring = cleaned[(idx + 3)..].Trim();
-            return substring.Split(' ')[0];
+            var portion = cleaned[(idx + 3)..].Trim();
+            return portion.Split(' ')[0].Trim();
         }
         return "UN";
     }
 
-    private static decimal ExtractDecimalValueAfterPrefix(string text, params string[] prefixes)
+    private static decimal ParseValueAfterPrefix(string text, params string[] prefixes)
     {
         var cleaned = CleanText(text);
         foreach (var prefix in prefixes)
@@ -362,7 +329,7 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
             if (idx >= 0)
             {
                 var portion = cleaned[(idx + prefix.Length)..].Trim();
-                var firstToken = portion.Split(' ')[0];
+                var firstToken = portion.Split(' ')[0].Trim();
                 if (TryParseDecimal(firstToken, out var val))
                 {
                     return val;
@@ -383,12 +350,6 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
         result = 0m;
         if (string.IsNullOrWhiteSpace(input)) return false;
 
-        var clean = ExtractDigitsAndSeparator(input);
-        return decimal.TryParse(clean, PtBrCulture, out result);
-    }
-
-    private static string ExtractDigitsAndSeparator(string input)
-    {
         var cleaned = CleanText(input);
         var sb = new System.Text.StringBuilder();
 
@@ -401,12 +362,30 @@ public class SefazCeHtmlParser : ISefazCeHtmlParser
         }
 
         var str = sb.ToString();
-        // Se houver vírgula e ponto, assumir formato BR (1.234,56) -> remover pontos e trocar vírgula por ponto no culture
         if (str.Contains('.') && str.Contains(','))
         {
             str = str.Replace(".", "");
         }
 
-        return str;
+        return decimal.TryParse(str, PtBrCulture, out result);
+    }
+
+    private static string CleanText(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+        var decoded = WebUtility.HtmlDecode(input);
+        return string.Join(" ", decoded.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)).Trim();
+    }
+
+    private static string ExtractDigits(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return string.Empty;
+        return new string(input.Where(char.IsDigit).ToArray());
+    }
+
+    private static string FormatCnpj(string digits)
+    {
+        if (digits.Length != 14) return digits;
+        return $"{digits[..2]}.{digits.Substring(2, 3)}.{digits.Substring(5, 3)}/{digits.Substring(8, 4)}-{digits[12..]}";
     }
 }

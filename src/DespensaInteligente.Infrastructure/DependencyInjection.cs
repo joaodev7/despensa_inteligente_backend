@@ -1,8 +1,13 @@
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Net.Security;
+using System.Security.Authentication;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System;
 using Polly;
 using DespensaInteligente.Application.Common.Interfaces;
 using DespensaInteligente.Application.Interfaces;
@@ -76,12 +81,53 @@ namespace DespensaInteligente.Infrastructure
             services.AddScoped<IFileStorageService, FileStorageService>();
 
             // Module: InvoiceScanner Infrastructure Registrations
+            services.AddSingleton<CookieContainer>();
+            services.AddTransient<ISefazCeQrCodeParser, SefazCeQrCodeParser>();
             services.AddTransient<ISefazCeHtmlParser, SefazCeHtmlParser>();
             services.AddScoped<IInvoiceProvider, SefazCeProvider>();
 
             services.AddHttpClient<IInvoiceHttpClient, InvoiceHttpClient>(client =>
             {
                 client.Timeout = TimeSpan.FromSeconds(15);
+            })
+            .AddTransientHttpErrorPolicy(policy => 
+                policy.WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
+
+            services.AddHttpClient<ISefazCeApiClient, SefazCeApiClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(20);
+            })
+            .ConfigurePrimaryHttpMessageHandler(sp =>
+            {
+                var logger = sp.GetRequiredService<ILogger<SefazCeApiClient>>();
+                var cookieContainer = sp.GetRequiredService<CookieContainer>();
+
+                var handler = new SocketsHttpHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli,
+                    AllowAutoRedirect = true,
+                    UseCookies = true,
+                    CookieContainer = cookieContainer,
+                    SslOptions = new SslClientAuthenticationOptions
+                    {
+                        EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+                        RemoteCertificateValidationCallback = (sender, certificate, chain, sslPolicyErrors) =>
+                        {
+                            if (sslPolicyErrors != SslPolicyErrors.None)
+                            {
+                                logger.LogWarning("[SSL/TLS AVISO] Falha na validação do certificado SSL da SEFAZ. Erros: {SslPolicyErrors}, Subject: {Subject}, Issuer: {Issuer}",
+                                    sslPolicyErrors, certificate?.Subject, certificate?.Issuer);
+                            }
+                            else
+                            {
+                                logger.LogDebug("[SSL/TLS SUCESSO] Handshake TLS concluído com sucesso. Subject: {Subject}, Issuer: {Issuer}",
+                                    certificate?.Subject, certificate?.Issuer);
+                            }
+                            return sslPolicyErrors == SslPolicyErrors.None;
+                        }
+                    }
+                };
+                return handler;
             })
             .AddTransientHttpErrorPolicy(policy => 
                 policy.WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));

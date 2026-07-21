@@ -83,7 +83,7 @@ public class InvoiceScanService : IInvoiceScanService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Erro de comunicação HTTP com a SEFAZ.");
-            return Result<InvoiceDto>.Failure(Error.CommunicationError("SEFAZ_COMMUNICATION_ERROR", "Falha de comunicação ao conectar com os servidores da SEFAZ."));
+            return Result<InvoiceDto>.Failure(Error.CommunicationError("SEFAZ_COMMUNICATION_ERROR", $"Falha de comunicação ao conectar com os servidores da SEFAZ: {ex.Message}"));
         }
         catch (Exception ex)
         {
