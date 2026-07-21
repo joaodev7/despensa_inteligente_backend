@@ -3,12 +3,17 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
+using Polly;
 using DespensaInteligente.Application.Common.Interfaces;
 using DespensaInteligente.Application.Interfaces;
 using DespensaInteligente.Application.Services;
+using DespensaInteligente.Application.InvoiceScanner.Interfaces;
 using DespensaInteligente.Infrastructure.Data;
 using DespensaInteligente.Infrastructure.Services;
 using DespensaInteligente.Infrastructure.Options;
+using DespensaInteligente.Infrastructure.InvoiceScanner.Http;
+using DespensaInteligente.Infrastructure.InvoiceScanner.Parsers;
+using DespensaInteligente.Infrastructure.InvoiceScanner.Providers;
 
 namespace DespensaInteligente.Infrastructure
 {
@@ -69,6 +74,17 @@ namespace DespensaInteligente.Infrastructure
 
             // Storage
             services.AddScoped<IFileStorageService, FileStorageService>();
+
+            // Module: InvoiceScanner Infrastructure Registrations
+            services.AddTransient<ISefazCeHtmlParser, SefazCeHtmlParser>();
+            services.AddScoped<IInvoiceProvider, SefazCeProvider>();
+
+            services.AddHttpClient<IInvoiceHttpClient, InvoiceHttpClient>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(15);
+            })
+            .AddTransientHttpErrorPolicy(policy => 
+                policy.WaitAndRetryAsync(3, retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt))));
 
             return services;
         }
