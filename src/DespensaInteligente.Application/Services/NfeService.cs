@@ -101,7 +101,14 @@ namespace DespensaInteligente.Application.Services
         {
             var userId = _currentUserService.UserId ?? throw new UnauthorizedAccessException("Usuário não autenticado.");
 
-            var cleanChave = System.Text.RegularExpressions.Regex.Replace(input.Extracao.ChaveAcesso ?? "", @"\D", "");
+            if (input == null)
+            {
+                throw new ArgumentNullException(nameof(input), "Dados de importação não fornecidos.");
+            }
+
+            var extracao = input.Extracao ?? new InvoiceExtractionResult();
+
+            var cleanChave = System.Text.RegularExpressions.Regex.Replace(extracao.ChaveAcesso ?? "", @"\D", "");
             
             if (cleanChave.Length == 44)
             {
@@ -119,7 +126,10 @@ namespace DespensaInteligente.Application.Services
             using var transaction = new System.Transactions.TransactionScope(System.Transactions.TransactionScopeAsyncFlowOption.Enabled);
 
             // Serialize the raw extraction details to store in PostgreSQL jsonb
-            string rawExtracaoJson = JsonSerializer.Serialize(input.Extracao);
+            string rawExtracaoJson = JsonSerializer.Serialize(extracao);
+
+            var mercado = string.IsNullOrWhiteSpace(extracao.Estabelecimento) ? "Supermercado" : extracao.Estabelecimento.Trim();
+            var dataCompra = extracao.DataCompra == default ? DateOnly.FromDateTime(DateTime.Today) : extracao.DataCompra;
 
             // 1. Create NotaFiscal
             var notaFiscal = new NotaFiscal
@@ -127,9 +137,9 @@ namespace DespensaInteligente.Application.Services
                 Id = Guid.NewGuid(),
                 UserId = userId,
                 ChaveAcesso = cleanChave,
-                Mercado = input.Extracao.Estabelecimento,
-                DataCompra = input.Extracao.DataCompra,
-                ValorTotal = input.Extracao.ValorTotal,
+                Mercado = mercado,
+                DataCompra = dataCompra,
+                ValorTotal = extracao.ValorTotal,
                 ArquivoNome = input.ArquivoNome,
                 ArquivoPath = input.ArquivoPath,
                 RawExtracao = rawExtracaoJson,
@@ -142,11 +152,11 @@ namespace DespensaInteligente.Application.Services
             {
                 Id = Guid.NewGuid(),
                 UserId = userId,
-                Mercado = input.Extracao.Estabelecimento,
-                DataCompra = input.Extracao.DataCompra,
-                ValorTotal = input.Extracao.ValorTotal,
+                Mercado = mercado,
+                DataCompra = dataCompra,
+                ValorTotal = extracao.ValorTotal,
                 NotaFiscalId = notaFiscal.Id,
-                Observacoes = $"Importada via nota fiscal. Chave: {cleanChave}",
+                Observacoes = string.IsNullOrWhiteSpace(cleanChave) ? "Importada via nota fiscal." : $"Importada via nota fiscal. Chave: {cleanChave}",
                 CreatedAt = DateTimeOffset.UtcNow
             };
             _context.Compras.Add(compra);
@@ -155,12 +165,22 @@ namespace DespensaInteligente.Application.Services
             await _context.SaveChangesAsync();
 
             // 3. Process items and create lots
-            if (input.Extracao.Itens != null)
+            if (extracao.Itens != null && extracao.Itens.Count > 0)
             {
-                foreach (var itemExtracted in input.Extracao.Itens)
+                foreach (var itemExtracted in extracao.Itens)
                 {
+                    var nomeItem = string.IsNullOrWhiteSpace(itemExtracted.Descricao) ? "Produto" : itemExtracted.Descricao.Trim();
+                    var unidade = string.IsNullOrWhiteSpace(itemExtracted.Unidade) ? "un" : itemExtracted.Unidade.Trim();
+                    var qtd = itemExtracted.Quantidade <= 0 ? 1m : itemExtracted.Quantidade;
+                    var precoUnit = itemExtracted.ValorUnitario <= 0 && itemExtracted.ValorTotal > 0
+                        ? Math.Round(itemExtracted.ValorTotal / qtd, 4)
+                        : itemExtracted.ValorUnitario;
+                    var precoTotal = itemExtracted.ValorTotal <= 0
+                        ? Math.Round(qtd * precoUnit, 2)
+                        : itemExtracted.ValorTotal;
+
                     // Match with user catalog or create new catalog entry
-                    var itemId = await _compraService.GetOrCreateItemFromCatalogAsync(userId, itemExtracted.Descricao, itemExtracted.Unidade);
+                    var itemId = await _compraService.GetOrCreateItemFromCatalogAsync(userId, nomeItem, unidade);
 
                     // Create CompraItem
                     var compraItem = new CompraItem
@@ -169,11 +189,11 @@ namespace DespensaInteligente.Application.Services
                         UserId = userId,
                         CompraId = compra.Id,
                         ItemId = itemId,
-                        NomeOriginal = itemExtracted.Descricao,
-                        Quantidade = itemExtracted.Quantidade,
-                        Unidade = itemExtracted.Unidade,
-                        PrecoUnitario = itemExtracted.ValorUnitario,
-                        PrecoTotal = itemExtracted.ValorTotal
+                        NomeOriginal = nomeItem,
+                        Quantidade = qtd,
+                        Unidade = unidade,
+                        PrecoUnitario = precoUnit,
+                        PrecoTotal = precoTotal
                     };
                     _context.CompraItens.Add(compraItem);
 
@@ -184,7 +204,7 @@ namespace DespensaInteligente.Application.Services
                         UserId = userId,
                         ItemId = itemId,
                         CompraId = compra.Id,
-                        Quantidade = itemExtracted.Quantidade,
+                        Quantidade = qtd,
                         Validade = null,
                         Local = "despensa",
                         Consumido = false,
