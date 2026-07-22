@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace DespensaInteligente.Domain.Entities
 {
@@ -20,7 +21,9 @@ namespace DespensaInteligente.Domain.Entities
         public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
         // Navigation properties
+        [JsonIgnore]
         public Item? Item { get; set; }
+        [JsonIgnore]
         public Compra? Compra { get; set; }
     }
 }

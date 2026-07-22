@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace DespensaInteligente.Domain.Entities
 {
@@ -15,7 +16,9 @@ namespace DespensaInteligente.Domain.Entities
         public decimal? PrecoTotal { get; set; }
 
         // Navigation properties
+        [JsonIgnore]
         public Compra? Compra { get; set; }
+        [JsonIgnore]
         public Item? Item { get; set; }
     }
 }

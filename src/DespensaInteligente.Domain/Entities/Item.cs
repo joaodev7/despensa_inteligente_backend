@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace DespensaInteligente.Domain.Entities
 {
@@ -20,7 +21,11 @@ namespace DespensaInteligente.Domain.Entities
 
         // Navigation properties
         public Categoria? Categoria { get; set; }
+
+        [JsonIgnore]
         public ICollection<Lote> Lotes { get; set; } = new List<Lote>();
+
+        [JsonIgnore]
         public ICollection<CompraItem> CompraItens { get; set; } = new List<CompraItem>();
     }
 }
