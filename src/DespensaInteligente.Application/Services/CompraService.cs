@@ -55,7 +55,9 @@ namespace DespensaInteligente.Application.Services
 
             if (filterByMonth)
             {
-                query = query.Where(c => c.DataCompra.Year == year && c.DataCompra.Month == month);
+                var startOfMonth = new DateOnly(year, month, 1);
+                var endOfMonth = startOfMonth.AddMonths(1);
+                query = query.Where(c => c.DataCompra >= startOfMonth && c.DataCompra < endOfMonth);
             }
 
             // Filter by mercado (case-insensitive substring)

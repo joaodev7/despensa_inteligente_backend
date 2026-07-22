@@ -59,7 +59,9 @@ namespace DespensaInteligente.Application.Services
             var comprasQuery = _context.Compras.AsQueryable();
             if (filterByMonth)
             {
-                comprasQuery = comprasQuery.Where(c => c.DataCompra.Year == year && c.DataCompra.Month == month);
+                var startOfMonth = new DateOnly(year, month, 1);
+                var endOfMonth = startOfMonth.AddMonths(1);
+                comprasQuery = comprasQuery.Where(c => c.DataCompra >= startOfMonth && c.DataCompra < endOfMonth);
             }
             if (!string.IsNullOrWhiteSpace(mercado))
             {

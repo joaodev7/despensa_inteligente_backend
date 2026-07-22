@@ -69,9 +69,14 @@ namespace DespensaInteligente.Application.Services
 
             if (filterByMonth)
             {
+                var startOfMonthDate = new DateOnly(year, month, 1);
+                var endOfMonthDate = startOfMonthDate.AddMonths(1);
+                var startOfMonthUtc = new DateTimeOffset(year, month, 1, 0, 0, 0, TimeSpan.Zero);
+                var endOfMonthUtc = startOfMonthUtc.AddMonths(1);
+
                 query = query.Where(l => 
-                    (l.Compra != null && l.Compra.DataCompra.Year == year && l.Compra.DataCompra.Month == month) ||
-                    (l.Compra == null && l.CreatedAt.Year == year && l.CreatedAt.Month == month)
+                    (l.Compra != null && l.Compra.DataCompra >= startOfMonthDate && l.Compra.DataCompra < endOfMonthDate) ||
+                    (l.Compra == null && l.CreatedAt >= startOfMonthUtc && l.CreatedAt < endOfMonthUtc)
                 );
             }
 

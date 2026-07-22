@@ -106,15 +106,12 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure CORS for Vite Frontend
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-                     ?? new[] { "http://localhost:5173" };
-
+// Configure CORS for Frontend and Mobile apps
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowViteFrontend", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
